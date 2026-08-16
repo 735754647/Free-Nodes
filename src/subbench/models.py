@@ -42,6 +42,7 @@ class Node:
             "original_name": self.metadata.get("original_name"),
             "country_code": self.metadata.get("country_code"),
             "exit_ip": self.metadata.get("exit_ip"),
+            "tcp_connect_ms": self.metadata.get("tcp_connect_ms"),
             "latency_ms": self.latency_ms,
             "speed_mbps": self.speed_mbps,
             "error": self.error,

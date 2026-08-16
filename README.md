@@ -28,6 +28,7 @@
 - 支持普通文本、Base64 订阅、HTML 中的节点链接和 Clash YAML
 - 支持 `VLESS`、`VMess`、`Trojan`、`Shadowsocks`、`Hysteria2` 和 `TUIC`
 - 根据协议参数进行规范化去重，而不是只比较节点名称
+- 在加载代理内核前并发检测去重后的入口 IP/域名与端口，快速剔除本地 TCP 不可达节点
 - 使用 Mihomo 测试代理连通性、延迟和限定大小的下载速度
 - 自动过滤不可用节点，并按速度和延迟排序
 - 通过代理出口 IP 识别国家，并将节点重命名为 `🇺🇸 美国 | VLESS | 001` 格式
@@ -77,6 +78,9 @@ Value: 每行一个订阅地址
 | --- | ---: | --- |
 | `MAX_NODES` | `0` | `0` 表示对全部去重后的候选节点进行测速 |
 | `MAX_OUTPUT_NODES` | `0` | `0` 表示发布全部通过延迟和下载测速的可用节点 |
+| `TCP_PREFILTER_ENABLED` | `1` | 在 Mihomo 测试前启用入口 TCP 端口预筛 |
+| `TCP_CONNECT_TIMEOUT_SECONDS` | `3` | 单个入口端口连接超时 |
+| `TCP_PREFILTER_WORKERS` | `64` | 并发入口端口检测数量 |
 | `MAX_LATENCY_MS` | `3000` | 最大允许延迟 |
 | `MIN_SPEED_MBPS` | `0.1` | 最低下载速度；低于 `0.1 Mbps` 或未完成下载测速的节点不会发布 |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
@@ -150,6 +154,7 @@ Before the first deployment, open `Settings → Pages` and select **GitHub Actio
 - Accepts plain URI lists, Base64 subscriptions, HTML links, and Clash YAML
 - Supports `VLESS`, `VMess`, `Trojan`, `Shadowsocks`, `Hysteria2`, and `TUIC`
 - Deduplicates nodes by normalized connection parameters
+- Concurrently checks unique entry hosts and ports before loading Mihomo
 - Uses Mihomo for real proxy connectivity, latency, and bounded download tests
 - Filters failed nodes and sorts successful results by speed and latency
 - Detects the proxy exit country and renames nodes like `🇺🇸 美国 | VLESS | 001`
@@ -186,6 +191,9 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | --- | ---: | --- |
 | `MAX_NODES` | `0` | `0` benchmarks every deduplicated candidate |
 | `MAX_OUTPUT_NODES` | `0` | `0` publishes every node that passes latency and download testing |
+| `TCP_PREFILTER_ENABLED` | `1` | Enables entry TCP port prefiltering before Mihomo tests |
+| `TCP_CONNECT_TIMEOUT_SECONDS` | `3` | Per-entry TCP connection timeout |
+| `TCP_PREFILTER_WORKERS` | `64` | Concurrent entry-port checks |
 | `MAX_LATENCY_MS` | `3000` | Maximum accepted latency |
 | `MIN_SPEED_MBPS` | `0.1` | Minimum download speed; nodes below `0.1 Mbps` or without a completed speed test are rejected |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |

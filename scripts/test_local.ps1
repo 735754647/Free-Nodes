@@ -30,6 +30,9 @@ try {
 
     $env:MAX_NODES = "$MaxNodes"
     $env:MAX_OUTPUT_NODES = "$MaxNodes"
+    $env:TCP_PREFILTER_ENABLED = "1"
+    $env:TCP_CONNECT_TIMEOUT_SECONDS = "3"
+    $env:TCP_PREFILTER_WORKERS = "64"
     $env:MAX_LATENCY_MS = "$MaxLatencyMs"
     $env:MIN_SPEED_MBPS = "$MinSpeedMbps"
     $env:SPEED_TEST_LIMIT = "0"

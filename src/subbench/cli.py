@@ -10,6 +10,7 @@ from .countries import country_name_zh
 from .models import Node
 from .output import prepare_names, write_outputs
 from .parsers import parse_document
+from .prefilter import tcp_prefilter
 from .sources import fetch_sources, load_sources
 
 
@@ -25,6 +26,13 @@ def _float_env(name: str, default: float) -> float:
         return float(os.environ.get(name, default))
     except ValueError:
         return default
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _filter_benchmarked_nodes(nodes: list[Node], max_latency: int, min_speed: float) -> list[Node]:
@@ -94,7 +102,6 @@ def run(args: argparse.Namespace) -> int:
         raise RuntimeError("Sources were fetched, but no supported nodes were found.")
     for node in nodes:
         node.metadata.setdefault("original_name", node.name)
-    prepare_names(nodes)
 
     mihomo = Path(args.mihomo)
     benchmark_performed = False
@@ -103,29 +110,39 @@ def run(args: argparse.Namespace) -> int:
     elif not mihomo.exists():
         raise RuntimeError(f"Mihomo binary not found: {mihomo}")
     else:
-        workdir = Path(args.workdir)
-        with MihomoBenchmark(
-            binary=mihomo,
-            workdir=workdir,
-            nodes=nodes,
-            latency_url=os.environ.get("LATENCY_TEST_URL", "https://www.google.com/generate_204"),
-            speed_url=os.environ.get(
-                "SPEED_TEST_URL",
-                "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country.mmdb",
-            ),
-            geo_url=os.environ.get(
-                "GEOIP_TEST_URLS",
-                "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/",
-            ),
-            timeout_ms=_int_env("LATENCY_TIMEOUT_MS", 8000),
-            speed_bytes=_int_env("SPEED_TEST_BYTES", 50_000),
-            speed_limit=_int_env("SPEED_TEST_LIMIT", 0),
-            speed_timeout_seconds=_int_env("SPEED_TIMEOUT_SECONDS", 8),
-            workers=_int_env("BENCHMARK_WORKERS", 12),
-        ) as benchmark:
-            benchmark_performed = True
-            write_mihomo_config(workdir / "mihomo-nodes.yaml", nodes)
-            nodes = benchmark.benchmark(nodes)
+        benchmark_performed = True
+        if _bool_env("TCP_PREFILTER_ENABLED", True):
+            nodes = tcp_prefilter(
+                nodes,
+                timeout_seconds=_float_env("TCP_CONNECT_TIMEOUT_SECONDS", 3.0),
+                workers=_int_env("TCP_PREFILTER_WORKERS", 64),
+            )
+        if not nodes:
+            print("No nodes passed the TCP prefilter; publishing an empty subscription.")
+        else:
+            prepare_names(nodes)
+            workdir = Path(args.workdir)
+            with MihomoBenchmark(
+                binary=mihomo,
+                workdir=workdir,
+                nodes=nodes,
+                latency_url=os.environ.get("LATENCY_TEST_URL", "https://www.google.com/generate_204"),
+                speed_url=os.environ.get(
+                    "SPEED_TEST_URL",
+                    "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country.mmdb",
+                ),
+                geo_url=os.environ.get(
+                    "GEOIP_TEST_URLS",
+                    "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/",
+                ),
+                timeout_ms=_int_env("LATENCY_TIMEOUT_MS", 8000),
+                speed_bytes=_int_env("SPEED_TEST_BYTES", 50_000),
+                speed_limit=_int_env("SPEED_TEST_LIMIT", 0),
+                speed_timeout_seconds=_int_env("SPEED_TIMEOUT_SECONDS", 8),
+                workers=_int_env("BENCHMARK_WORKERS", 12),
+            ) as benchmark:
+                write_mihomo_config(workdir / "mihomo-nodes.yaml", nodes)
+                nodes = benchmark.benchmark(nodes)
 
     max_latency = _int_env("MAX_LATENCY_MS", 3000)
     min_speed = _float_env("MIN_SPEED_MBPS", 0.1)
