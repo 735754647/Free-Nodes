@@ -1,7 +1,10 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from subbench.benchmark import MihomoBenchmark, _parse_geo_payload
+import yaml
+
+from subbench.benchmark import MihomoBenchmark, _parse_geo_payload, write_mihomo_config
 from subbench.cli import _filter_benchmarked_nodes, _rename_nodes_by_country
 from subbench.models import Node
 
@@ -76,6 +79,14 @@ class BenchmarkTests(unittest.TestCase):
         country, exit_ip = _parse_geo_payload('{"ip":"203.0.113.20","country":"SG"}')
         self.assertEqual(country, "SG")
         self.assertEqual(exit_ip, "203.0.113.20")
+
+    def test_benchmark_traffic_is_routed_through_selected_node(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "benchmark.yaml"
+            write_mihomo_config(path, [make_node("one")])
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        self.assertEqual(document["rules"], ["MATCH,BENCHMARK"])
+        self.assertEqual(document["proxy-groups"], [{"name": "BENCHMARK", "type": "select", "proxies": ["one"]}])
 
 
 if __name__ == "__main__":

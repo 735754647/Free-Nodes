@@ -142,7 +142,13 @@ def run(args: argparse.Namespace) -> int:
         _rename_nodes_by_country(nodes)
     if not nodes:
         failures = "; ".join(node.error or "unknown error" for node in unique.values() if node.error)
-        raise RuntimeError(f"All nodes failed the configured latency/speed filters. {failures[:1000]}")
+        source_errors.append(
+            {
+                "source": "benchmark",
+                "error": f"No nodes passed the configured latency/speed filters. {failures[:1000]}",
+            }
+        )
+        print("No nodes passed the configured latency/speed filters; publishing an empty subscription.")
 
     write_outputs(Path(args.output), nodes, source_errors)
     print(f"Published {len(nodes)} nodes from {len(source_specs)} sources.")

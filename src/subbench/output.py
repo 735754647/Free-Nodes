@@ -58,14 +58,8 @@ def write_outputs(output_dir: Path, nodes: list[Node], source_errors: list[dict[
 
     proxies = [node.clash for node in nodes if node.clash]
     names = [proxy["name"] for proxy in proxies]
-    clash_config = {
-        "mixed-port": 7890,
-        "allow-lan": False,
-        "mode": "rule",
-        "log-level": "warning",
-        "ipv6": False,
-        "proxies": proxies,
-        "proxy-groups": [
+    if names:
+        proxy_groups = [
             {
                 "name": "AUTO",
                 "type": "url-test",
@@ -75,7 +69,18 @@ def write_outputs(output_dir: Path, nodes: list[Node], source_errors: list[dict[
                 "proxies": names,
             },
             {"name": "PROXY", "type": "select", "proxies": ["AUTO", "DIRECT", *names]},
-        ],
+        ]
+    else:
+        proxy_groups = [{"name": "PROXY", "type": "select", "proxies": ["DIRECT"]}]
+
+    clash_config = {
+        "mixed-port": 7890,
+        "allow-lan": False,
+        "mode": "rule",
+        "log-level": "warning",
+        "ipv6": False,
+        "proxies": proxies,
+        "proxy-groups": proxy_groups,
         "rules": ["MATCH,PROXY"],
     }
     (output_dir / "clash.yaml").write_text(

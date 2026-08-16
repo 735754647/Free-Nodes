@@ -209,17 +209,8 @@ def write_mihomo_config(path: Path, nodes: list[Node]) -> None:
         "ipv6": False,
         "proxies": [node.clash for node in nodes if node.clash],
         "proxy-groups": [
-            {
-                "name": "AUTO",
-                "type": "url-test",
-                "url": "https://www.google.com/generate_204",
-                "interval": 300,
-                "tolerance": 100,
-                "proxies": names,
-            },
             {"name": "BENCHMARK", "type": "select", "proxies": names},
-            {"name": "PROXY", "type": "select", "proxies": ["AUTO", "BENCHMARK", "DIRECT", *names]},
         ],
-        "rules": ["MATCH,PROXY"],
+        "rules": ["MATCH,BENCHMARK"],
     }
     path.write_text(yaml.safe_dump(document, allow_unicode=True, sort_keys=False), encoding="utf-8")
