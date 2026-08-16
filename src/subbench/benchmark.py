@@ -138,6 +138,25 @@ class MihomoBenchmark:
                     print(f"Latency test {index}/{total}: {usable} reachable", flush=True)
             return measured
 
+    def geolocate(self, node: Node) -> None:
+        for geo_url in self.geo_urls:
+            try:
+                location = requests.get(
+                    geo_url,
+                    proxies={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"},
+                    timeout=(5, 8),
+                )
+                location.raise_for_status()
+                country_code, exit_ip = _parse_geo_payload(location.text)
+                if country_code:
+                    node.metadata["country_code"] = country_code
+                if exit_ip:
+                    node.metadata["exit_ip"] = exit_ip
+                if country_code:
+                    break
+            except requests.RequestException:
+                continue
+
     def speed(self, node: Node) -> Node:
         try:
             selected = requests.put(
@@ -146,24 +165,6 @@ class MihomoBenchmark:
                 timeout=10,
             )
             selected.raise_for_status()
-
-            for geo_url in self.geo_urls:
-                try:
-                    location = requests.get(
-                        geo_url,
-                        proxies={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"},
-                        timeout=(5, 8),
-                    )
-                    location.raise_for_status()
-                    country_code, exit_ip = _parse_geo_payload(location.text)
-                    if country_code:
-                        node.metadata["country_code"] = country_code
-                    if exit_ip:
-                        node.metadata["exit_ip"] = exit_ip
-                    if country_code:
-                        break
-                except requests.RequestException:
-                    continue
 
             started = time.monotonic()
             received = 0
@@ -180,6 +181,7 @@ class MihomoBenchmark:
                         break
             elapsed = max(time.monotonic() - started, 0.001)
             node.speed_mbps = round(received * 8 / elapsed / 1_000_000, 2)
+            self.geolocate(node)
         except (requests.RequestException, ValueError) as exc:
             node.error = f"speed: {exc}"
         return node
