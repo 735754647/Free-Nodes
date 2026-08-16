@@ -124,6 +124,7 @@ def run(args: argparse.Namespace) -> int:
                 nodes,
                 timeout_seconds=_float_env("TCP_CONNECT_TIMEOUT_SECONDS", 3.0),
                 workers=_int_env("TCP_PREFILTER_WORKERS", 64),
+                attempts=_int_env("TCP_CONNECT_ATTEMPTS", 2),
             )
         if not nodes:
             print("No nodes passed the TCP prefilter; publishing an empty subscription.")
@@ -150,6 +151,7 @@ def run(args: argparse.Namespace) -> int:
                 workers=_int_env("BENCHMARK_WORKERS", 12),
                 speed_enabled=speed_test_enabled,
                 geo_workers=_int_env("GEOIP_WORKERS", 24),
+                latency_attempts=_int_env("LATENCY_TEST_ATTEMPTS", 2),
             ) as benchmark:
                 write_mihomo_config(workdir / "mihomo-nodes.yaml", nodes)
                 nodes = benchmark.benchmark(nodes)

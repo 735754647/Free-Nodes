@@ -80,8 +80,10 @@ Value: 每行一个订阅地址
 | `MAX_OUTPUT_NODES` | `0` | `0` 表示发布全部通过延迟和下载测速的可用节点 |
 | `TCP_PREFILTER_ENABLED` | `1` | 在 Mihomo 测试前启用入口 TCP 端口预筛 |
 | `TCP_CONNECT_TIMEOUT_SECONDS` | `3` | 单个入口端口连接超时 |
+| `TCP_CONNECT_ATTEMPTS` | `2` | TCP 首次失败时再尝试一次；首次成功不会重复连接 |
 | `TCP_PREFILTER_WORKERS` | `64` | 并发入口端口检测数量 |
 | `MAX_LATENCY_MS` | `3000` | 最大允许延迟 |
+| `LATENCY_TEST_ATTEMPTS` | `2` | Google 204 首次失败时重试一次，降低瞬时网络抖动导致的误删 |
 | `MIN_SPEED_MBPS` | `0.1` | 最低下载速度；低于 `0.1 Mbps` 或未完成下载测速的节点不会发布 |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
 | `GEOIP_WORKERS` | `24` | 并发查询真实出口国家数量；每个节点使用独立本地 Mihomo 入口 |
@@ -201,8 +203,10 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `MAX_OUTPUT_NODES` | `0` | `0` publishes every node that passes latency and download testing |
 | `TCP_PREFILTER_ENABLED` | `1` | Enables entry TCP port prefiltering before Mihomo tests |
 | `TCP_CONNECT_TIMEOUT_SECONDS` | `3` | Per-entry TCP connection timeout |
+| `TCP_CONNECT_ATTEMPTS` | `2` | Retries TCP once after an initial failure; successful connections are not repeated |
 | `TCP_PREFILTER_WORKERS` | `64` | Concurrent entry-port checks |
 | `MAX_LATENCY_MS` | `3000` | Maximum accepted latency |
+| `LATENCY_TEST_ATTEMPTS` | `2` | Retries the Google 204 check once after an initial failure to reduce transient false negatives |
 | `MIN_SPEED_MBPS` | `0.1` | Minimum download speed; nodes below `0.1 Mbps` or without a completed speed test are rejected |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |
 | `GEOIP_WORKERS` | `24` | Concurrent exit-country lookups; each node uses a dedicated local Mihomo listener |

@@ -36,8 +36,24 @@ class TcpPrefilterTests(unittest.TestCase):
 
         kept = tcp_prefilter(nodes, timeout_seconds=2.5, workers=2, connector=connector)
         self.assertEqual([node.name for node in kept], ["one", "two"])
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(sum(endpoint[0] == "blocked.example" for endpoint, _ in calls), 2)
         self.assertTrue(all(node.metadata.get("tcp_connect_ms") is not None for node in kept))
+
+    def test_transient_tcp_failure_is_retried(self):
+        node = make_node("one", "flaky.example", 443)
+        attempts = 0
+
+        def connector(endpoint: tuple[str, int], timeout: float):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise TimeoutError("temporary")
+            return DummyConnection()
+
+        kept = tcp_prefilter([node], timeout_seconds=2.5, workers=1, connector=connector)
+        self.assertEqual([item.name for item in kept], ["one"])
+        self.assertEqual(attempts, 2)
 
 
 if __name__ == "__main__":

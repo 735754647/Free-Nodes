@@ -45,6 +45,7 @@ class MihomoBenchmark:
         workers: int,
         speed_enabled: bool = True,
         geo_workers: int | None = None,
+        latency_attempts: int = 2,
     ) -> None:
         self.binary = binary
         self.workdir = workdir
@@ -58,6 +59,7 @@ class MihomoBenchmark:
         self.speed_timeout_seconds = max(1, speed_timeout_seconds)
         self.workers = max(1, workers)
         self.geo_workers = max(1, geo_workers or workers)
+        self.latency_attempts = max(1, latency_attempts)
         self.speed_enabled = speed_enabled
         self.controller = "http://127.0.0.1:9090"
         self.proxy_port = 7890
@@ -122,20 +124,25 @@ class MihomoBenchmark:
         return f"{self.controller}/proxies/{quote(name, safe='')}"
 
     def latency(self, node: Node) -> Node:
-        try:
-            response = requests.get(
-                f"{self._proxy_path(node.name)}/delay",
-                params={
-                    "url": self.latency_url,
-                    "timeout": str(self.timeout_ms),
-                    "expected": "204",
-                },
-                timeout=max(5, self.timeout_ms / 1000 + 5),
-            )
-            response.raise_for_status()
-            node.latency_ms = int(response.json()["delay"])
-        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
-            node.error = f"latency: {exc}"
+        last_error: Exception | None = None
+        for _ in range(self.latency_attempts):
+            try:
+                response = requests.get(
+                    f"{self._proxy_path(node.name)}/delay",
+                    params={
+                        "url": self.latency_url,
+                        "timeout": str(self.timeout_ms),
+                        "expected": "204",
+                    },
+                    timeout=max(5, self.timeout_ms / 1000 + 5),
+                )
+                response.raise_for_status()
+                node.latency_ms = int(response.json()["delay"])
+                return node
+            except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+                last_error = exc
+        if last_error:
+            node.error = f"latency: {last_error}"
         return node
 
     def benchmark_latency(self, nodes: list[Node]) -> list[Node]:

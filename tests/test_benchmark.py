@@ -1,7 +1,9 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+import requests
 import yaml
 
 from subbench.benchmark import MihomoBenchmark, _parse_geo_payload, write_mihomo_config
@@ -118,6 +120,40 @@ class BenchmarkTests(unittest.TestCase):
         country, exit_ip = _parse_geo_payload('{"ip":"203.0.113.20","country":"SG"}')
         self.assertEqual(country, "SG")
         self.assertEqual(exit_ip, "203.0.113.20")
+
+    def test_transient_google_204_failure_is_retried(self):
+        node = make_node("one")
+        benchmark = MihomoBenchmark(
+            binary=Path("mihomo"),
+            workdir=Path(".work-test"),
+            nodes=[node],
+            latency_url="https://www.google.com/generate_204",
+            speed_url="https://example.com/test.bin",
+            geo_url="https://api.country.is/",
+            timeout_ms=8000,
+            speed_bytes=1000,
+            speed_limit=0,
+            speed_timeout_seconds=8,
+            workers=1,
+            latency_attempts=2,
+        )
+
+        class SuccessfulResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"delay": 123}
+
+        with patch(
+            "subbench.benchmark.requests.get",
+            side_effect=[requests.RequestException("temporary"), SuccessfulResponse()],
+        ) as request:
+            benchmark.latency(node)
+
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(node.latency_ms, 123)
+        self.assertIsNone(node.error)
 
     def test_benchmark_traffic_is_routed_through_selected_node(self):
         with TemporaryDirectory() as directory:

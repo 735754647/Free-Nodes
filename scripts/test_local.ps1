@@ -33,8 +33,10 @@ try {
     $env:MAX_OUTPUT_NODES = "$MaxNodes"
     $env:TCP_PREFILTER_ENABLED = "1"
     $env:TCP_CONNECT_TIMEOUT_SECONDS = "3"
+    $env:TCP_CONNECT_ATTEMPTS = "2"
     $env:TCP_PREFILTER_WORKERS = "64"
     $env:MAX_LATENCY_MS = "$MaxLatencyMs"
+    $env:LATENCY_TEST_ATTEMPTS = "2"
     $env:MIN_SPEED_MBPS = "$MinSpeedMbps"
     $env:GEOIP_WORKERS = "$LatencyWorkers"
     $env:SPEED_TEST_ENABLED = if ($EnableSpeedTest) { "1" } else { "0" }

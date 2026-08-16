@@ -30,6 +30,7 @@ def tcp_prefilter(
     nodes: list[Node],
     timeout_seconds: float = 3.0,
     workers: int = 64,
+    attempts: int = 2,
     connector: Connector | None = None,
 ) -> list[Node]:
     connect = connector or socket.create_connection
@@ -40,15 +41,17 @@ def tcp_prefilter(
             endpoint_nodes[endpoint].append(node)
 
     def check(endpoint: Endpoint) -> tuple[Endpoint, float | None]:
-        started = time.monotonic()
-        try:
-            connection = connect(endpoint, timeout_seconds)
-            close = getattr(connection, "close", None)
-            if callable(close):
-                close()
-            return endpoint, round((time.monotonic() - started) * 1000, 1)
-        except (OSError, TimeoutError):
-            return endpoint, None
+        for _ in range(max(1, attempts)):
+            started = time.monotonic()
+            try:
+                connection = connect(endpoint, timeout_seconds)
+                close = getattr(connection, "close", None)
+                if callable(close):
+                    close()
+                return endpoint, round((time.monotonic() - started) * 1000, 1)
+            except (OSError, TimeoutError):
+                continue
+        return endpoint, None
 
     reachable: dict[Endpoint, float] = {}
     endpoints = list(endpoint_nodes)
