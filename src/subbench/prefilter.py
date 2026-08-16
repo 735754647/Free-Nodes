@@ -4,13 +4,16 @@ import socket
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Callable
+from typing import Any, Callable
+
+import requests
 
 from .models import Node
 
 
 Endpoint = tuple[str, int]
 Connector = Callable[[Endpoint, float], object]
+Requester = Callable[..., Any]
 
 
 def _endpoint(node: Node) -> Endpoint | None:
@@ -76,6 +79,89 @@ def tcp_prefilter(
     print(
         f"TCP prefilter kept {len(kept)}/{len(nodes)} nodes "
         f"across {len(reachable)}/{len(endpoints)} reachable endpoints.",
+        flush=True,
+    )
+    return kept
+
+
+def aliyun_tcp_prefilter(
+    nodes: list[Node],
+    url: str,
+    timeout_seconds: float = 10.0,
+    interval_seconds: float = 1.5,
+    max_consecutive_errors: int = 3,
+    requester: Requester | None = None,
+    sleeper: Callable[[float], None] = time.sleep,
+) -> list[Node]:
+    endpoint_nodes: dict[Endpoint, list[Node]] = defaultdict(list)
+    for node in nodes:
+        endpoint = _endpoint(node)
+        if endpoint:
+            endpoint_nodes[endpoint].append(node)
+
+    endpoints = list(endpoint_nodes)
+    if not url.strip() or not endpoints:
+        return nodes
+
+    session: requests.Session | None = None
+    if requester is None:
+        session = requests.Session()
+        session.trust_env = False
+        requester = session.get
+
+    results: dict[Endpoint, bool] = {}
+    errors = 0
+    consecutive_errors = 0
+    error_limit = max(1, max_consecutive_errors)
+    try:
+        for index, endpoint in enumerate(endpoints, start=1):
+            server, port = endpoint
+            try:
+                response = requester(
+                    url,
+                    params={"ip": server, "port": port},
+                    timeout=max(1.0, timeout_seconds),
+                )
+                if response.status_code != 200:
+                    raise requests.RequestException(f"HTTP {response.status_code}")
+                results[endpoint] = "ok" in response.text.lower()
+                consecutive_errors = 0
+            except (requests.RequestException, OSError, TimeoutError):
+                errors += 1
+                consecutive_errors += 1
+                if consecutive_errors >= error_limit:
+                    print(
+                        "Aliyun FC TCP prefilter is unavailable; keeping untested endpoints.",
+                        flush=True,
+                    )
+                    break
+            finally:
+                sleeper(max(0.0, interval_seconds))
+
+            if index % 50 == 0 or index == len(endpoints):
+                reachable = sum(results.values())
+                print(
+                    f"Aliyun FC TCP prefilter {index}/{len(endpoints)}: "
+                    f"{reachable} reachable, {errors} request errors",
+                    flush=True,
+                )
+    finally:
+        if session is not None:
+            session.close()
+
+    kept: list[Node] = []
+    for node in nodes:
+        endpoint = _endpoint(node)
+        if results.get(endpoint) is False:
+            continue
+        if results.get(endpoint) is True:
+            node.metadata["aliyun_tcp_reachable"] = True
+        kept.append(node)
+
+    rejected = sum(result is False for result in results.values())
+    print(
+        f"Aliyun FC TCP prefilter kept {len(kept)}/{len(nodes)} nodes; "
+        f"rejected {rejected} endpoints and preserved failed or untested checks.",
         flush=True,
     )
     return kept

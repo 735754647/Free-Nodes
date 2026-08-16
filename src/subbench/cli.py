@@ -10,7 +10,7 @@ from .countries import country_name_zh
 from .models import Node
 from .output import prepare_names, write_outputs
 from .parsers import parse_document
-from .prefilter import tcp_prefilter
+from .prefilter import aliyun_tcp_prefilter, tcp_prefilter
 from .sources import fetch_sources, load_sources
 
 
@@ -125,6 +125,15 @@ def run(args: argparse.Namespace) -> int:
                 timeout_seconds=_float_env("TCP_CONNECT_TIMEOUT_SECONDS", 3.0),
                 workers=_int_env("TCP_PREFILTER_WORKERS", 64),
                 attempts=_int_env("TCP_CONNECT_ATTEMPTS", 2),
+            )
+        aliyun_fc_url = os.environ.get("ALIYUN_FC_URL", "").strip()
+        if aliyun_fc_url and nodes:
+            nodes = aliyun_tcp_prefilter(
+                nodes,
+                url=aliyun_fc_url,
+                timeout_seconds=_float_env("ALIYUN_FC_TIMEOUT_SECONDS", 10.0),
+                interval_seconds=_float_env("ALIYUN_FC_INTERVAL_SECONDS", 1.5),
+                max_consecutive_errors=_int_env("ALIYUN_FC_MAX_CONSECUTIVE_ERRORS", 3),
             )
         if not nodes:
             print("No nodes passed the TCP prefilter; publishing an empty subscription.")

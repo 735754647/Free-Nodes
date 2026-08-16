@@ -44,12 +44,16 @@ jobs:
       - name: Build subscriptions
         env:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
+          ALIYUN_FC_URL: ${{ secrets.ALIYUN_FC_URL }}
           MAX_NODES: "0"
           MAX_OUTPUT_NODES: "0"
           TCP_PREFILTER_ENABLED: "1"
           TCP_CONNECT_TIMEOUT_SECONDS: "3"
           TCP_CONNECT_ATTEMPTS: "2"
           TCP_PREFILTER_WORKERS: "64"
+          ALIYUN_FC_TIMEOUT_SECONDS: "10"
+          ALIYUN_FC_INTERVAL_SECONDS: "1.5"
+          ALIYUN_FC_MAX_CONSECUTIVE_ERRORS: "3"
           MAX_LATENCY_MS: "3000"
           LATENCY_TEST_ATTEMPTS: "2"
           MIN_SPEED_MBPS: "0.1"
