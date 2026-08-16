@@ -1,0 +1,65 @@
+name: Build subscriptions
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "config/**"
+      - "src/**"
+      - "scripts/**"
+      - ".github/workflows/build.yml"
+      - "pyproject.toml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install project
+        run: python -m pip install --upgrade pip && python -m pip install .
+
+      - name: Install Mihomo
+        run: python scripts/install_mihomo.py --output .bin/mihomo
+
+      - name: Build subscriptions
+        env:
+          SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
+          MAX_OUTPUT_NODES: "100"
+          SPEED_TEST_LIMIT: "50"
+          SPEED_TEST_BYTES: "1000000"
+        run: subbench run --mihomo .bin/mihomo --output public --workdir .work
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

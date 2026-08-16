@@ -1,0 +1,2 @@
+vless://00000000-0000-4000-8000-000000000001@example.com:443?encryption=none&security=tls&type=ws&host=cdn.example.com&path=%2Fws&sni=example.com#demo
+vless://00000000-0000-4000-8000-000000000001@example.com:443?encryption=none&security=tls&type=ws&host=cdn.example.com&path=%2Fws&sni=example.com#duplicate-name

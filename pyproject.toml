@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "node-subscription-builder"
+version = "0.1.0"
+description = "Fetch, deduplicate, benchmark, and publish proxy subscriptions."
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML>=6.0.2,<7",
+  "requests>=2.32,<3",
+]
+
+[project.scripts]
+subbench = "subbench.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

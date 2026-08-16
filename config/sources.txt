@@ -1,0 +1,17 @@
+# One public subscription or webpage URL per line.
+# Optional label syntax: source-name | https://example.com/subscription
+#
+# Keep private URLs out of this file. Store them in the SOURCE_URLS
+# repository secret as newline-separated values.
+
+# Public sources supplied for this project.
+https://raw.githubusercontent.com/free18/v2ray/refs/heads/main/v.txt
+https://git.io/emzv2ray
+https://raw.githubusercontent.com/chengaopan/AutoMergePublicNodes/refs/heads/master/list_raw.txt
+https://openproxylist.com/v2ray/rawlist/subscribe
+https://raw.githubusercontent.com/ShatakVPN/ConfigForge-V2Ray/main/configs/all.txt
+
+# These URLs contain subscription keys. Add them to the GitHub Actions
+# SOURCE_URLS secret instead of committing them to a public repository:
+# https://freesocks.org/api/v1/sub/<your-subscription-token>
+# https://www.v2nodes.com/subscriptions/country/all/?key=<your-key>
