@@ -2,7 +2,7 @@ param(
     [int]$MaxNodes = 0,
     [int]$MaxLatencyMs = 3000,
     [double]$MinSpeedMbps = 0.1,
-    [int]$SpeedTestBytes = 300000,
+    [int]$SpeedTestBytes = 50000,
     [int]$LatencyWorkers = 8
 )
 
@@ -34,7 +34,7 @@ try {
     $env:MIN_SPEED_MBPS = "$MinSpeedMbps"
     $env:SPEED_TEST_LIMIT = "0"
     $env:SPEED_TEST_BYTES = "$SpeedTestBytes"
-    $env:SPEED_TIMEOUT_SECONDS = "15"
+    $env:SPEED_TIMEOUT_SECONDS = "8"
     $env:BENCHMARK_WORKERS = "$LatencyWorkers"
     $env:LATENCY_TEST_URL = "https://www.google.com/generate_204"
     $env:GEOIP_TEST_URLS = "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/"

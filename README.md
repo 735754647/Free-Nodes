@@ -81,8 +81,8 @@ Value: 每行一个订阅地址
 | `MIN_SPEED_MBPS` | `0.1` | 最低下载速度；低于 `0.1 Mbps` 或未完成下载测速的节点不会发布 |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
 | `SPEED_TEST_LIMIT` | `0` | `0` 表示对全部延迟测试通过的节点执行下载测速 |
-| `SPEED_TEST_BYTES` | `300000` | 云端每个节点最多下载的字节数 |
-| `SPEED_TIMEOUT_SECONDS` | `15` | 单个节点下载测速超时 |
+| `SPEED_TEST_BYTES` | `50000` | 云端每个节点下载约 50 KB，用于快速筛选而非精确带宽评测 |
+| `SPEED_TIMEOUT_SECONDS` | `8` | 单个节点下载测速读取超时 |
 | `BENCHMARK_WORKERS` | `24` | 并发延迟测试数量 |
 
 测速运行在 GitHub 托管的服务器上，结果反映的是 GitHub Runner 所在网络到节点的质量，并不等于你本地网络的实际体验。
@@ -190,8 +190,8 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `MIN_SPEED_MBPS` | `0.1` | Minimum download speed; nodes below `0.1 Mbps` or without a completed speed test are rejected |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |
 | `SPEED_TEST_LIMIT` | `0` | `0` tests every node that passes the latency check |
-| `SPEED_TEST_BYTES` | `300000` | Maximum bytes downloaded per node in CI |
-| `SPEED_TIMEOUT_SECONDS` | `15` | Per-node download-test timeout |
+| `SPEED_TEST_BYTES` | `50000` | Downloads about 50 KB per node for screening, not precise bandwidth benchmarking |
+| `SPEED_TIMEOUT_SECONDS` | `8` | Per-node download read timeout |
 | `BENCHMARK_WORKERS` | `24` | Concurrent latency checks |
 
 GitHub-hosted runners have different routes and locations from your local network, so benchmark results are useful for filtering but cannot predict every user's connection quality.

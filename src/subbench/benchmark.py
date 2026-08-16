@@ -144,7 +144,7 @@ class MihomoBenchmark:
                 location = requests.get(
                     geo_url,
                     proxies={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"},
-                    timeout=(5, 8),
+                    timeout=(3, 5),
                 )
                 location.raise_for_status()
                 country_code, exit_ip = _parse_geo_payload(location.text)

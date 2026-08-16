@@ -49,8 +49,8 @@ jobs:
           MIN_SPEED_MBPS: "0.1"
           GEOIP_TEST_URLS: "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/"
           SPEED_TEST_LIMIT: "0"
-          SPEED_TEST_BYTES: "300000"
-          SPEED_TIMEOUT_SECONDS: "15"
+          SPEED_TEST_BYTES: "50000"
+          SPEED_TIMEOUT_SECONDS: "8"
           BENCHMARK_WORKERS: "24"
         run: subbench run --mihomo .bin/mihomo --output public --workdir .work
 

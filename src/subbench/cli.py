@@ -118,9 +118,9 @@ def run(args: argparse.Namespace) -> int:
                 "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/",
             ),
             timeout_ms=_int_env("LATENCY_TIMEOUT_MS", 8000),
-            speed_bytes=_int_env("SPEED_TEST_BYTES", 1_000_000),
+            speed_bytes=_int_env("SPEED_TEST_BYTES", 50_000),
             speed_limit=_int_env("SPEED_TEST_LIMIT", 0),
-            speed_timeout_seconds=_int_env("SPEED_TIMEOUT_SECONDS", 15),
+            speed_timeout_seconds=_int_env("SPEED_TIMEOUT_SECONDS", 8),
             workers=_int_env("BENCHMARK_WORKERS", 12),
         ) as benchmark:
             benchmark_performed = True
