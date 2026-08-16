@@ -38,6 +38,7 @@ class MihomoBenchmark:
         self.controller = "http://127.0.0.1:9090"
         self.proxy_port = 7890
         self.process: subprocess.Popen[str] | None = None
+        self.log_handle = None
 
     def __enter__(self) -> "MihomoBenchmark":
         self.workdir.mkdir(parents=True, exist_ok=True)
@@ -48,13 +49,15 @@ class MihomoBenchmark:
             + config_path.read_text(encoding="utf-8"),
             encoding="utf-8",
         )
+        log_path = self.workdir / "mihomo.log"
+        self.log_handle = log_path.open("w", encoding="utf-8")
         self.process = subprocess.Popen(
             [str(self.binary), "-d", str(self.workdir), "-f", str(config_path)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=self.log_handle,
+            stderr=subprocess.STDOUT,
             text=True,
         )
-        deadline = time.monotonic() + 25
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
                 response = requests.get(f"{self.controller}/version", timeout=1)
@@ -62,7 +65,16 @@ class MihomoBenchmark:
                     return self
             except requests.RequestException:
                 time.sleep(0.25)
-        raise RuntimeError("Mihomo did not start")
+        log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-4000:]
+        if self.process and self.process.poll() is None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+        if self.log_handle:
+            self.log_handle.close()
+        raise RuntimeError(f"Mihomo did not start within 60 seconds. Log tail:\n{log_tail}")
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         if self.process and self.process.poll() is None:
@@ -71,6 +83,8 @@ class MihomoBenchmark:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+        if self.log_handle:
+            self.log_handle.close()
 
     def _proxy_path(self, name: str) -> str:
         return f"{self.controller}/proxies/{quote(name, safe='')}"

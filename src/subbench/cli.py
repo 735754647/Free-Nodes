@@ -44,6 +44,8 @@ def run(args: argparse.Namespace) -> int:
             continue
         nodes.extend(parse_document(result.text or "", result.source.name))
 
+    print(f"Fetched {len(source_results)} sources and parsed {len(nodes)} candidate nodes.")
+
     unique: dict[str, Node] = {}
     for node in nodes:
         unique.setdefault(node.canonical_key(), node)
@@ -94,7 +96,8 @@ def run(args: argparse.Namespace) -> int:
     )
     nodes = nodes[: _int_env("MAX_OUTPUT_NODES", 100)]
     if not nodes:
-        raise RuntimeError("All nodes failed the configured latency/speed filters.")
+        failures = "; ".join(node.error or "unknown error" for node in unique.values() if node.error)
+        raise RuntimeError(f"All nodes failed the configured latency/speed filters. {failures[:1000]}")
 
     write_outputs(Path(args.output), nodes, source_errors)
     print(f"Published {len(nodes)} nodes from {len(source_specs)} sources.")
