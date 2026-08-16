@@ -1,69 +1,207 @@
-# Node Subscription Builder
+# Free Nodes
 
-This project fetches public proxy sources, extracts supported node links, removes duplicates, benchmarks them with Mihomo, and publishes V2Ray and Clash/Mihomo subscriptions through GitHub Pages.
+[![Build subscriptions](https://github.com/735754647/Free-Nodes/actions/workflows/build.yml/badge.svg)](https://github.com/735754647/Free-Nodes/actions/workflows/build.yml)
 
-Supported protocols: `VLESS`, `VMess`, `Trojan`, `Shadowsocks`, `Hysteria2`, and `TUIC`.
+[简体中文](#简体中文) | [English](#english)
 
-## Quick start
+## 简体中文
 
-1. Create a GitHub repository and copy this directory into it.
-2. Add one URL per line to `config/sources.txt`, for example:
+一个自动收集、解析、去重和测速公开代理节点的 GitHub Actions 项目。项目使用 Mihomo 对候选节点进行实际连通性与下载速度测试，并通过 GitHub Pages 生成 V2Ray 和 Clash/Mihomo 订阅。
 
-   ```text
-   provider-a | https://example.com/public-subscription
-   https://example.org/nodes.txt
-   ```
+> 免费节点来自公开网络，可能随时失效、限速或被修改。请勿用于传输敏感信息，也不要将测速结果视为长期可用保证。
 
-   The fetcher accepts plain text, Base64 subscriptions, HTML containing links, and Clash YAML. Dynamic pages that require JavaScript need a direct subscription URL or a custom extractor.
-3. Commit and push to the `main` branch.
-4. In repository settings, enable Pages with **GitHub Actions** as the source.
-5. Run **Build subscriptions** once from the Actions tab.
+### 订阅地址
 
-After deployment, the generated files are available at:
+| 类型 | 订阅链接 | 说明 |
+| --- | --- | --- |
+| V2Ray | `https://735754647.github.io/Free-Nodes/v2ray.txt` | Base64 编码订阅，适用于 v2rayN、v2rayNG 等客户端 |
+| Clash / Mihomo | `https://735754647.github.io/Free-Nodes/clash.yaml` | 完整 Clash/Mihomo 配置，包含自动延迟选择组 |
+| 原始节点 | `https://735754647.github.io/Free-Nodes/v2ray-raw.txt` | 未进行 Base64 编码的节点链接 |
+| 测速报告 | `https://735754647.github.io/Free-Nodes/report.json` | 节点来源、延迟、速度和错误信息 |
+| 状态页面 | `https://735754647.github.io/Free-Nodes/` | 最近一次生成结果和节点列表 |
+
+首次使用前，需要在仓库 `Settings → Pages` 中将发布来源设置为 **GitHub Actions**。Pages 尚未启用时，上述链接会返回 404。
+
+### 主要功能
+
+- 从多个公开订阅、文本文件或网页抓取节点
+- 支持普通文本、Base64 订阅、HTML 中的节点链接和 Clash YAML
+- 支持 `VLESS`、`VMess`、`Trojan`、`Shadowsocks`、`Hysteria2` 和 `TUIC`
+- 根据协议参数进行规范化去重，而不是只比较节点名称
+- 使用 Mihomo 测试代理连通性、延迟和限定大小的下载速度
+- 自动过滤不可用节点，并按速度和延迟排序
+- 每 6 小时自动更新，也支持在 Actions 页面手动运行
+- 生成 V2Ray、Clash/Mihomo、原始链接和 JSON 报告
+
+### 客户端使用
+
+V2Ray 客户端导入：
 
 ```text
-https://YOUR_USER.github.io/YOUR_REPOSITORY/v2ray.txt
-https://YOUR_USER.github.io/YOUR_REPOSITORY/clash.yaml
+https://735754647.github.io/Free-Nodes/v2ray.txt
 ```
 
-`v2ray.txt` is a Base64 subscription. `clash.yaml` is a complete Clash/Mihomo configuration with an automatic latency group.
+Clash/Mihomo 客户端导入：
 
-## Private sources
+```text
+https://735754647.github.io/Free-Nodes/clash.yaml
+```
 
-GitHub Pages is public. Do not put private subscription tokens in the repository or publish nodes that you are not allowed to redistribute. For private URLs, create a repository secret named `SOURCE_URLS` containing newline-separated URLs. The workflow combines that secret with `config/sources.txt`; the generated page is still public, so use a private repository and an access-controlled publisher if the output must stay private.
+不同客户端对协议和传输方式的支持程度不同。如果某个节点在报告中可用，但客户端无法连接，请检查客户端内核版本以及对应协议支持情况。
 
-## Tuning
+### 添加节点来源
 
-The workflow sets conservative defaults for GitHub-hosted runners. These environment variables can be changed in `.github/workflows/build.yml`:
+公开来源写入 [`config/sources.txt`](config/sources.txt)，每行一个地址：
 
-| Variable | Default | Purpose |
+```text
+provider-name | https://example.com/public-subscription
+https://example.org/nodes.txt
+```
+
+带有订阅密钥或访问令牌的地址不要提交到公开仓库。请在仓库中创建 Actions Secret：
+
+```text
+Settings → Secrets and variables → Actions → New repository secret
+Name: SOURCE_URLS
+Value: 每行一个订阅地址
+```
+
+`SOURCE_URLS` 会和 `config/sources.txt` 中的公开来源一起处理。请注意：即使来源保存在 Secret 中，GitHub Pages 生成的节点订阅仍然是公开的。
+
+### 测速设置
+
+可在 [`.github/workflows/build.yml`](.github/workflows/build.yml) 中调整：
+
+| 环境变量 | 默认值 | 用途 |
 | --- | ---: | --- |
-| `MAX_NODES` | `300` | Maximum nodes parsed before testing |
-| `MAX_OUTPUT_NODES` | `100` | Maximum nodes published |
-| `MAX_LATENCY_MS` | `5000` | Latency filter |
-| `MIN_SPEED_MBPS` | `0` | Download speed filter |
-| `SPEED_TEST_LIMIT` | `50` | Nodes receiving the download test |
-| `SPEED_TEST_BYTES` | `1000000` | Bytes read per speed test |
-| `LATENCY_TEST_URL` | Google generate_204 | Latency target |
-| `SPEED_TEST_URL` | Meta rules database | Download target |
+| `MAX_NODES` | `120` | 进入测速阶段的最大节点数量 |
+| `MAX_OUTPUT_NODES` | `100` | 最终发布的最大节点数量 |
+| `MAX_LATENCY_MS` | `5000` | 最大允许延迟 |
+| `MIN_SPEED_MBPS` | `0` | 最低下载速度 |
+| `SPEED_TEST_LIMIT` | `50` | 执行下载测速的节点数量 |
+| `SPEED_TEST_BYTES` | `1000000` | 每个节点最多下载的字节数 |
+| `BENCHMARK_WORKERS` | `6` | 并发延迟测试数量 |
 
-The speed test is intentionally bounded. Testing hundreds of nodes with large downloads can exhaust a GitHub Actions runner or violate a provider's acceptable-use policy.
+测速运行在 GitHub 托管的服务器上，结果反映的是 GitHub Runner 所在网络到节点的质量，并不等于你本地网络的实际体验。
 
-## Local test
+### 本地运行
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
 python -m unittest discover -s tests -v
+python scripts/install_mihomo.py --output .bin/mihomo.exe
+python -m subbench run --mihomo .bin/mihomo.exe
+```
+
+生成文件位于 `public/`。只想检查解析和订阅生成时，可以使用：
+
+```powershell
 python -m subbench run --skip-benchmark
 ```
 
-The last command needs at least one source URL. It writes generated files to `public/`.
+### 项目说明
 
-## Notes
+- 本项目不提供、出售或运营任何代理服务器
+- 节点内容由上游公开来源提供，本项目只进行自动整理和测试
+- 测速会产生真实代理流量，因此限制了并发量和下载大小
+- 公开节点可能存在隐私、安全和可用性风险
+- 请遵守所在地区法律、GitHub 服务条款以及节点提供方的使用规则
 
-- Only use sources and nodes that you are authorized to fetch and redistribute.
-- Mihomo is downloaded from its latest GitHub release and checked against the release SHA-256 digest when available.
-- The workflow runs every six hours and can also be started manually.
-- GitHub Actions runner IPs and geography differ from your phone or home network, so a node that passes CI is not guaranteed to work everywhere.
+### 免责声明
+
+本项目仅用于技术研究、网络测试和自动化学习。维护者不保证节点的真实性、安全性、速度或持续可用性，也不对使用这些节点造成的账号、数据、隐私、网络或法律风险承担责任。请只收集和发布你有权使用及再分发的来源。
+
+---
+
+## English
+
+Free Nodes is a GitHub Actions project that collects public proxy links, parses and deduplicates them, benchmarks connectivity and download speed with Mihomo, and publishes V2Ray and Clash/Mihomo subscriptions through GitHub Pages.
+
+> Public free nodes can disappear, slow down, or change without notice. Do not use them for sensitive traffic, and do not treat a successful CI test as a long-term availability guarantee.
+
+### Subscription URLs
+
+| Format | URL | Description |
+| --- | --- | --- |
+| V2Ray | `https://735754647.github.io/Free-Nodes/v2ray.txt` | Base64 subscription for clients such as v2rayN and v2rayNG |
+| Clash / Mihomo | `https://735754647.github.io/Free-Nodes/clash.yaml` | Complete configuration with an automatic latency group |
+| Raw links | `https://735754647.github.io/Free-Nodes/v2ray-raw.txt` | Extracted node links without Base64 encoding |
+| Benchmark report | `https://735754647.github.io/Free-Nodes/report.json` | Source, latency, speed, and error details |
+| Status page | `https://735754647.github.io/Free-Nodes/` | Latest generated results and node table |
+
+Before the first deployment, open `Settings → Pages` and select **GitHub Actions** as the publishing source. The URLs return 404 until Pages is enabled.
+
+### Features
+
+- Fetches multiple public subscriptions, text files, and webpages
+- Accepts plain URI lists, Base64 subscriptions, HTML links, and Clash YAML
+- Supports `VLESS`, `VMess`, `Trojan`, `Shadowsocks`, `Hysteria2`, and `TUIC`
+- Deduplicates nodes by normalized connection parameters
+- Uses Mihomo for real proxy connectivity, latency, and bounded download tests
+- Filters failed nodes and sorts successful results by speed and latency
+- Runs every six hours and supports manual workflow dispatch
+- Publishes V2Ray, Clash/Mihomo, raw-link, and JSON report outputs
+
+### Usage
+
+Import one of these URLs into a compatible client:
+
+```text
+V2Ray: https://735754647.github.io/Free-Nodes/v2ray.txt
+Clash: https://735754647.github.io/Free-Nodes/clash.yaml
+```
+
+Protocol and transport support varies between clients. A node that passes the CI benchmark can still fail on an older or incompatible client core.
+
+### Adding Sources
+
+Add public URLs to [`config/sources.txt`](config/sources.txt), one per line:
+
+```text
+provider-name | https://example.com/public-subscription
+https://example.org/nodes.txt
+```
+
+Store tokenized or private source URLs in the `SOURCE_URLS` GitHub Actions secret as newline-separated values. Do not commit subscription tokens to a public repository. Remember that the generated GitHub Pages subscriptions remain public even when the input URL is stored as a secret.
+
+### Benchmark Configuration
+
+The main limits are configured in [`.github/workflows/build.yml`](.github/workflows/build.yml):
+
+| Variable | Default | Purpose |
+| --- | ---: | --- |
+| `MAX_NODES` | `120` | Maximum candidates sent to Mihomo |
+| `MAX_OUTPUT_NODES` | `100` | Maximum published nodes |
+| `MAX_LATENCY_MS` | `5000` | Maximum accepted latency |
+| `MIN_SPEED_MBPS` | `0` | Minimum accepted download speed |
+| `SPEED_TEST_LIMIT` | `50` | Number of nodes receiving a download test |
+| `SPEED_TEST_BYTES` | `1000000` | Maximum bytes downloaded per tested node |
+| `BENCHMARK_WORKERS` | `6` | Concurrent latency checks |
+
+GitHub-hosted runners have different routes and locations from your local network, so benchmark results are useful for filtering but cannot predict every user's connection quality.
+
+### Local Development
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
+python -m unittest discover -s tests -v
+python scripts/install_mihomo.py --output .bin/mihomo.exe
+python -m subbench run --mihomo .bin/mihomo.exe
+```
+
+Generated subscriptions are written to `public/`. Use `python -m subbench run --skip-benchmark` when you only need to verify parsing and output generation.
+
+### Disclaimer
+
+This repository is intended for technical research, network testing, and automation learning. It does not operate or sell proxy servers. No guarantee is made regarding node ownership, safety, privacy, speed, legality, or availability. Only fetch and redistribute sources you are authorized to use, and comply with local laws, GitHub's terms, and upstream providers' policies.
+
+### References
+
+- [Mihomo](https://github.com/MetaCubeX/mihomo)
+- [free18/v2ray](https://github.com/free18/v2ray)
+- [AutoMergePublicNodes](https://github.com/chengaopan/AutoMergePublicNodes)
+- [ConfigForge-V2Ray](https://github.com/ShatakVPN/ConfigForge-V2Ray)
