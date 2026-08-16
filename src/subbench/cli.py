@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .benchmark import MihomoBenchmark, write_mihomo_config
+from .countries import country_name_zh
 from .models import Node
 from .output import prepare_names, write_outputs
 from .parsers import parse_document
@@ -54,7 +55,10 @@ def _rename_nodes_by_country(nodes: list[Node]) -> None:
         protocol = node.scheme.upper()
         key = (country_code, protocol)
         counters[key] = counters.get(key, 0) + 1
-        node.name = f"{_country_flag(country_code)} {country_code} | {protocol} | {counters[key]:03d}"
+        node.name = (
+            f"{_country_flag(country_code)} {country_name_zh(country_code)}"
+            f" | {protocol} | {counters[key]:03d}"
+        )
         if node.clash:
             node.clash["name"] = node.name
 

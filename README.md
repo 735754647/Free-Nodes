@@ -30,7 +30,7 @@
 - 根据协议参数进行规范化去重，而不是只比较节点名称
 - 使用 Mihomo 测试代理连通性、延迟和限定大小的下载速度
 - 自动过滤不可用节点，并按速度和延迟排序
-- 通过代理出口 IP 识别国家，并将节点重命名为 `🇺🇸 US | VLESS | 001` 格式
+- 通过代理出口 IP 识别国家，并将节点重命名为 `🇺🇸 美国 | VLESS | 001` 格式
 - 每 6 小时自动更新，也支持在 Actions 页面手动运行
 - 生成 V2Ray、Clash/Mihomo、原始链接和 JSON 报告
 
@@ -152,7 +152,7 @@ Before the first deployment, open `Settings → Pages` and select **GitHub Actio
 - Deduplicates nodes by normalized connection parameters
 - Uses Mihomo for real proxy connectivity, latency, and bounded download tests
 - Filters failed nodes and sorts successful results by speed and latency
-- Detects the proxy exit country and renames nodes like `🇺🇸 US | VLESS | 001`
+- Detects the proxy exit country and renames nodes like `🇺🇸 美国 | VLESS | 001`
 - Runs every six hours and supports manual workflow dispatch
 - Publishes V2Ray, Clash/Mihomo, raw-link, and JSON report outputs
 

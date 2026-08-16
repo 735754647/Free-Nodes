@@ -67,8 +67,8 @@ class BenchmarkTests(unittest.TestCase):
         first.metadata["country_code"] = "US"
         second.metadata["country_code"] = "US"
         _rename_nodes_by_country([first, second])
-        self.assertEqual(first.name, "🇺🇸 US | VLESS | 001")
-        self.assertEqual(second.name, "🇺🇸 US | VLESS | 002")
+        self.assertEqual(first.name, "🇺🇸 美国 | VLESS | 001")
+        self.assertEqual(second.name, "🇺🇸 美国 | VLESS | 002")
 
     def test_cloudflare_trace_geo_payload(self):
         country, exit_ip = _parse_geo_payload("ip=203.0.113.10\nloc=JP\ncolo=NRT\n")
