@@ -86,7 +86,7 @@ Value: 每行一个订阅地址
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
 | `SPEED_TEST_ENABLED` | `0` | `0` 关闭下载测速；改成 `1` 可恢复测速和最低速度过滤 |
 | `SPEED_TEST_LIMIT` | `0` | `0` 表示对全部延迟测试通过的节点执行下载测速 |
-| `SPEED_TEST_BYTES` | `50000` | 云端每个节点下载约 50 KB，用于快速筛选而非精确带宽评测 |
+| `SPEED_TEST_BYTES` | `1000000` | 启用测速后每个节点下载约 1 MB，用于筛选而非精确带宽评测 |
 | `SPEED_TIMEOUT_SECONDS` | `8` | 单个节点下载测速读取超时 |
 | `BENCHMARK_WORKERS` | `24` | 并发延迟测试数量 |
 
@@ -206,7 +206,7 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |
 | `SPEED_TEST_ENABLED` | `0` | `0` disables download tests; set to `1` to restore speed filtering |
 | `SPEED_TEST_LIMIT` | `0` | `0` tests every node that passes the latency check |
-| `SPEED_TEST_BYTES` | `50000` | Downloads about 50 KB per node for screening, not precise bandwidth benchmarking |
+| `SPEED_TEST_BYTES` | `1000000` | Downloads about 1 MB per node when enabled, for screening rather than precise bandwidth benchmarking |
 | `SPEED_TIMEOUT_SECONDS` | `8` | Per-node download read timeout |
 | `BENCHMARK_WORKERS` | `24` | Concurrent latency checks |
 

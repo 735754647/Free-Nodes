@@ -2,7 +2,7 @@ param(
     [int]$MaxNodes = 0,
     [int]$MaxLatencyMs = 3000,
     [double]$MinSpeedMbps = 0.1,
-    [int]$SpeedTestBytes = 50000,
+    [int]$SpeedTestBytes = 1000000,
     [int]$LatencyWorkers = 8,
     [switch]$EnableSpeedTest
 )

@@ -55,7 +55,7 @@ jobs:
           # Set to "1" to enable download speed testing and MIN_SPEED_MBPS filtering.
           SPEED_TEST_ENABLED: "0"
           SPEED_TEST_LIMIT: "0"
-          SPEED_TEST_BYTES: "50000"
+          SPEED_TEST_BYTES: "1000000"
           SPEED_TIMEOUT_SECONDS: "8"
           BENCHMARK_WORKERS: "24"
         run: subbench run --mihomo .bin/mihomo --output public --workdir .work
