@@ -127,6 +127,24 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(document["rules"], ["MATCH,BENCHMARK"])
         self.assertEqual(document["proxy-groups"], [{"name": "BENCHMARK", "type": "select", "proxies": ["one"]}])
 
+    def test_each_node_can_use_a_dedicated_local_listener(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "benchmark.yaml"
+            write_mihomo_config(path, [make_node("one")], {"one": 20000})
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            document["listeners"],
+            [
+                {
+                    "name": "benchmark-0001",
+                    "type": "mixed",
+                    "listen": "127.0.0.1",
+                    "port": 20000,
+                    "proxy": "one",
+                }
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

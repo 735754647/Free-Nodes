@@ -149,6 +149,7 @@ def run(args: argparse.Namespace) -> int:
                 speed_timeout_seconds=_int_env("SPEED_TIMEOUT_SECONDS", 8),
                 workers=_int_env("BENCHMARK_WORKERS", 12),
                 speed_enabled=speed_test_enabled,
+                geo_workers=_int_env("GEOIP_WORKERS", 24),
             ) as benchmark:
                 write_mihomo_config(workdir / "mihomo-nodes.yaml", nodes)
                 nodes = benchmark.benchmark(nodes)

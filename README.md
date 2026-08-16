@@ -84,6 +84,7 @@ Value: 每行一个订阅地址
 | `MAX_LATENCY_MS` | `3000` | 最大允许延迟 |
 | `MIN_SPEED_MBPS` | `0.1` | 最低下载速度；低于 `0.1 Mbps` 或未完成下载测速的节点不会发布 |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
+| `GEOIP_WORKERS` | `24` | 并发查询真实出口国家数量；每个节点使用独立本地 Mihomo 入口 |
 | `SPEED_TEST_ENABLED` | `0` | `0` 关闭下载测速；改成 `1` 可恢复测速和最低速度过滤 |
 | `SPEED_TEST_LIMIT` | `0` | `0` 表示对全部延迟测试通过的节点执行下载测速 |
 | `SPEED_TEST_BYTES` | `1000000` | 启用测速后每个节点下载约 1 MB，用于筛选而非精确带宽评测 |
@@ -204,6 +205,7 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `MAX_LATENCY_MS` | `3000` | Maximum accepted latency |
 | `MIN_SPEED_MBPS` | `0.1` | Minimum download speed; nodes below `0.1 Mbps` or without a completed speed test are rejected |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |
+| `GEOIP_WORKERS` | `24` | Concurrent exit-country lookups; each node uses a dedicated local Mihomo listener |
 | `SPEED_TEST_ENABLED` | `0` | `0` disables download tests; set to `1` to restore speed filtering |
 | `SPEED_TEST_LIMIT` | `0` | `0` tests every node that passes the latency check |
 | `SPEED_TEST_BYTES` | `1000000` | Downloads about 1 MB per node when enabled, for screening rather than precise bandwidth benchmarking |

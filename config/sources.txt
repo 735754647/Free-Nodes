@@ -5,11 +5,11 @@
 # repository secret as newline-separated values.
 
 # Public sources supplied for this project.
-https://raw.githubusercontent.com/free18/v2ray/refs/heads/main/v.txt
 https://git.io/emzv2ray
-https://raw.githubusercontent.com/chengaopan/AutoMergePublicNodes/refs/heads/master/list.txt
-https://raw.githubusercontent.com/peasoft/NoMoreWalls/refs/heads/master/list.txt
 https://openproxylist.com/v2ray/rawlist/subscribe
+https://raw.githubusercontent.com/free18/v2ray/refs/heads/main/v.txt
+https://raw.githubusercontent.com/peasoft/NoMoreWalls/refs/heads/master/list.txt
+https://raw.githubusercontent.com/chengaopan/AutoMergePublicNodes/refs/heads/master/list.txt
 https://raw.githubusercontent.com/ShatakVPN/ConfigForge-V2Ray/main/configs/all.txt
 
 # These URLs contain subscription keys. Add them to the GitHub Actions

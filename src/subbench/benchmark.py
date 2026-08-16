@@ -44,6 +44,7 @@ class MihomoBenchmark:
         speed_timeout_seconds: int,
         workers: int,
         speed_enabled: bool = True,
+        geo_workers: int | None = None,
     ) -> None:
         self.binary = binary
         self.workdir = workdir
@@ -56,16 +57,25 @@ class MihomoBenchmark:
         self.speed_limit = speed_limit
         self.speed_timeout_seconds = max(1, speed_timeout_seconds)
         self.workers = max(1, workers)
+        self.geo_workers = max(1, geo_workers or workers)
         self.speed_enabled = speed_enabled
         self.controller = "http://127.0.0.1:9090"
         self.proxy_port = 7890
+        self.listener_port_base = 20000
+        testable_nodes = [node for node in nodes if node.clash]
+        if testable_nodes and self.listener_port_base + len(testable_nodes) - 1 > 65535:
+            raise ValueError("Too many nodes for dedicated Mihomo benchmark listeners.")
+        self.node_proxy_ports = {
+            node.name: self.listener_port_base + index
+            for index, node in enumerate(testable_nodes)
+        }
         self.process: subprocess.Popen[str] | None = None
         self.log_handle = None
 
     def __enter__(self) -> "MihomoBenchmark":
         self.workdir.mkdir(parents=True, exist_ok=True)
         config_path = self.workdir / "mihomo-benchmark.yaml"
-        write_mihomo_config(config_path, self.nodes)
+        write_mihomo_config(config_path, self.nodes, self.node_proxy_ports)
         config_path.write_text(
             "external-controller: 127.0.0.1:9090\n"
             + config_path.read_text(encoding="utf-8"),
@@ -140,12 +150,17 @@ class MihomoBenchmark:
                     print(f"Latency test {index}/{total}: {usable} reachable", flush=True)
             return measured
 
-    def geolocate(self, node: Node) -> None:
+    def _proxies_for_port(self, port: int) -> dict[str, str]:
+        proxy = f"http://127.0.0.1:{port}"
+        return {"http": proxy, "https": proxy}
+
+    def geolocate(self, node: Node, proxy_port: int | None = None) -> None:
+        port = proxy_port or self.proxy_port
         for geo_url in self.geo_urls:
             try:
                 location = requests.get(
                     geo_url,
-                    proxies={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"},
+                    proxies=self._proxies_for_port(port),
                     timeout=(3, 5),
                 )
                 location.raise_for_status()
@@ -169,8 +184,10 @@ class MihomoBenchmark:
 
     def locate(self, node: Node) -> Node:
         try:
-            self.select(node)
-            self.geolocate(node)
+            proxy_port = self.node_proxy_ports.get(node.name)
+            if proxy_port is None:
+                self.select(node)
+            self.geolocate(node, proxy_port)
         except requests.RequestException as exc:
             node.metadata["geo_error"] = str(exc)
         return node
@@ -183,7 +200,7 @@ class MihomoBenchmark:
             received = 0
             with requests.get(
                 self.speed_url,
-                proxies={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"},
+                proxies=self._proxies_for_port(self.proxy_port),
                 stream=True,
                 timeout=(min(10, self.speed_timeout_seconds), self.speed_timeout_seconds),
             ) as response:
@@ -205,11 +222,14 @@ class MihomoBenchmark:
         valid.sort(key=lambda node: (node.latency_ms or 10**9, node.name))
         if not self.speed_enabled:
             total = len(valid)
-            for index, node in enumerate(valid, start=1):
-                self.locate(node)
-                if index % 50 == 0 or index == total:
-                    located = sum(bool(item.metadata.get("country_code")) for item in valid[:index])
-                    print(f"Location test {index}/{total}: {located} countries detected", flush=True)
+            with ThreadPoolExecutor(max_workers=self.geo_workers) as executor:
+                futures = [executor.submit(self.locate, node) for node in valid]
+                located_nodes: list[Node] = []
+                for index, future in enumerate(as_completed(futures), start=1):
+                    located_nodes.append(future.result())
+                    if index % 50 == 0 or index == total:
+                        located = sum(bool(item.metadata.get("country_code")) for item in located_nodes)
+                        print(f"Location test {index}/{total}: {located} countries detected", flush=True)
             return valid
 
         speed_candidates = valid if self.speed_limit <= 0 else valid[: self.speed_limit]
@@ -221,7 +241,11 @@ class MihomoBenchmark:
         return valid
 
 
-def write_mihomo_config(path: Path, nodes: list[Node]) -> None:
+def write_mihomo_config(
+    path: Path,
+    nodes: list[Node],
+    listener_ports: dict[str, int] | None = None,
+) -> None:
     import yaml
 
     names = [node.name for node in nodes if node.clash]
@@ -237,4 +261,16 @@ def write_mihomo_config(path: Path, nodes: list[Node]) -> None:
         ],
         "rules": ["MATCH,BENCHMARK"],
     }
+    if listener_ports:
+        document["listeners"] = [
+            {
+                "name": f"benchmark-{index:04d}",
+                "type": "mixed",
+                "listen": "127.0.0.1",
+                "port": listener_ports[node.name],
+                "proxy": node.name,
+            }
+            for index, node in enumerate(nodes, start=1)
+            if node.clash and node.name in listener_ports
+        ]
     path.write_text(yaml.safe_dump(document, allow_unicode=True, sort_keys=False), encoding="utf-8")
