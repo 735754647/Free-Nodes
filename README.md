@@ -32,7 +32,7 @@
 - 使用 Mihomo 测试代理连通性、延迟和限定大小的下载速度
 - 自动过滤不可用节点，并按速度和延迟排序
 - 通过代理出口 IP 识别国家，并将节点重命名为 `🇺🇸 美国 | VLESS | 001` 格式
-- 每 6 小时自动更新，也支持在 Actions 页面手动运行
+- 每天北京时间 08:00 和 20:00 自动更新，也支持在 Actions 页面手动运行
 - 生成 V2Ray、Clash/Mihomo、原始链接和 JSON 报告
 
 ### 客户端使用
@@ -84,6 +84,7 @@ Value: 每行一个订阅地址
 | `MAX_LATENCY_MS` | `3000` | 最大允许延迟 |
 | `MIN_SPEED_MBPS` | `0.1` | 最低下载速度；低于 `0.1 Mbps` 或未完成下载测速的节点不会发布 |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
+| `SPEED_TEST_ENABLED` | `0` | `0` 关闭下载测速；改成 `1` 可恢复测速和最低速度过滤 |
 | `SPEED_TEST_LIMIT` | `0` | `0` 表示对全部延迟测试通过的节点执行下载测速 |
 | `SPEED_TEST_BYTES` | `50000` | 云端每个节点下载约 50 KB，用于快速筛选而非精确带宽评测 |
 | `SPEED_TIMEOUT_SECONDS` | `8` | 单个节点下载测速读取超时 |
@@ -106,6 +107,12 @@ Windows 用户也可以直接运行本地线路测速脚本：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/test_local.ps1
+```
+
+下载速度测试默认关闭。需要临时开启时运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/test_local.ps1 -EnableSpeedTest
 ```
 
 本地结果写入 `public-local/`，其延迟和速度更接近当前电脑运行 v2rayN 时的实际线路。GitHub Pages 上的订阅仍由 GitHub 托管服务器测速。
@@ -158,7 +165,7 @@ Before the first deployment, open `Settings → Pages` and select **GitHub Actio
 - Uses Mihomo for real proxy connectivity, latency, and bounded download tests
 - Filters failed nodes and sorts successful results by speed and latency
 - Detects the proxy exit country and renames nodes like `🇺🇸 美国 | VLESS | 001`
-- Runs every six hours and supports manual workflow dispatch
+- Runs daily at 08:00 and 20:00 Asia/Shanghai and supports manual workflow dispatch
 - Publishes V2Ray, Clash/Mihomo, raw-link, and JSON report outputs
 
 ### Usage
@@ -197,6 +204,7 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `MAX_LATENCY_MS` | `3000` | Maximum accepted latency |
 | `MIN_SPEED_MBPS` | `0.1` | Minimum download speed; nodes below `0.1 Mbps` or without a completed speed test are rejected |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |
+| `SPEED_TEST_ENABLED` | `0` | `0` disables download tests; set to `1` to restore speed filtering |
 | `SPEED_TEST_LIMIT` | `0` | `0` tests every node that passes the latency check |
 | `SPEED_TEST_BYTES` | `50000` | Downloads about 50 KB per node for screening, not precise bandwidth benchmarking |
 | `SPEED_TIMEOUT_SECONDS` | `8` | Per-node download read timeout |

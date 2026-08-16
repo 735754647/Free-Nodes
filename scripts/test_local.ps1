@@ -3,7 +3,8 @@ param(
     [int]$MaxLatencyMs = 3000,
     [double]$MinSpeedMbps = 0.1,
     [int]$SpeedTestBytes = 50000,
-    [int]$LatencyWorkers = 8
+    [int]$LatencyWorkers = 8,
+    [switch]$EnableSpeedTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +36,7 @@ try {
     $env:TCP_PREFILTER_WORKERS = "64"
     $env:MAX_LATENCY_MS = "$MaxLatencyMs"
     $env:MIN_SPEED_MBPS = "$MinSpeedMbps"
+    $env:SPEED_TEST_ENABLED = if ($EnableSpeedTest) { "1" } else { "0" }
     $env:SPEED_TEST_LIMIT = "0"
     $env:SPEED_TEST_BYTES = "$SpeedTestBytes"
     $env:SPEED_TIMEOUT_SECONDS = "8"

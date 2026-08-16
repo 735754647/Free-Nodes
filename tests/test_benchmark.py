@@ -61,6 +61,39 @@ class BenchmarkTests(unittest.TestCase):
         filtered = _filter_benchmarked_nodes(nodes, max_latency=3000, min_speed=0.5)
         self.assertEqual([node.name for node in filtered], ["good"])
 
+    def test_filter_allows_latency_only_when_speed_is_disabled(self):
+        nodes = [make_node("latency-only", 100), make_node("too-late", 4000)]
+        filtered = _filter_benchmarked_nodes(
+            nodes,
+            max_latency=3000,
+            min_speed=0.1,
+            require_speed=False,
+        )
+        self.assertEqual([node.name for node in filtered], ["latency-only"])
+
+    def test_speed_disabled_uses_location_checks_only(self):
+        nodes = [make_node("one", 100), make_node("two", 200)]
+        benchmark = MihomoBenchmark(
+            binary=Path("mihomo"),
+            workdir=Path(".work-test"),
+            nodes=nodes,
+            latency_url="https://www.google.com/generate_204",
+            speed_url="https://example.com/test.bin",
+            geo_url="https://www.cloudflare.com/cdn-cgi/trace",
+            timeout_ms=8000,
+            speed_bytes=1000,
+            speed_limit=0,
+            speed_timeout_seconds=8,
+            workers=1,
+            speed_enabled=False,
+        )
+        benchmark.benchmark_latency = lambda candidates: candidates
+        located: list[str] = []
+        benchmark.locate = lambda node: located.append(node.name) or node
+        benchmark.speed = lambda node: self.fail("speed test must stay disabled")
+        benchmark.benchmark(nodes)
+        self.assertEqual(located, ["one", "two"])
+
     def test_nodes_are_renamed_with_exit_country_and_protocol(self):
         first = make_node("upstream one", 100, 5.0)
         second = make_node("upstream two", 120, 4.0)

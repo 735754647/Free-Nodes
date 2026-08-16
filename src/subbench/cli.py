@@ -35,15 +35,22 @@ def _bool_env(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _filter_benchmarked_nodes(nodes: list[Node], max_latency: int, min_speed: float) -> list[Node]:
+def _filter_benchmarked_nodes(
+    nodes: list[Node],
+    max_latency: int,
+    min_speed: float,
+    require_speed: bool = True,
+) -> list[Node]:
     return [
         node
         for node in nodes
         if node.error is None
         and node.latency_ms is not None
         and node.latency_ms <= max_latency
-        and node.speed_mbps is not None
-        and node.speed_mbps >= min_speed
+        and (
+            not require_speed
+            or (node.speed_mbps is not None and node.speed_mbps >= min_speed)
+        )
     ]
 
 
@@ -105,6 +112,7 @@ def run(args: argparse.Namespace) -> int:
 
     mihomo = Path(args.mihomo)
     benchmark_performed = False
+    speed_test_enabled = _bool_env("SPEED_TEST_ENABLED", False)
     if args.skip_benchmark:
         print("Benchmark skipped; publishing parsed nodes.")
     elif not mihomo.exists():
@@ -140,6 +148,7 @@ def run(args: argparse.Namespace) -> int:
                 speed_limit=_int_env("SPEED_TEST_LIMIT", 0),
                 speed_timeout_seconds=_int_env("SPEED_TIMEOUT_SECONDS", 8),
                 workers=_int_env("BENCHMARK_WORKERS", 12),
+                speed_enabled=speed_test_enabled,
             ) as benchmark:
                 write_mihomo_config(workdir / "mihomo-nodes.yaml", nodes)
                 nodes = benchmark.benchmark(nodes)
@@ -147,7 +156,12 @@ def run(args: argparse.Namespace) -> int:
     max_latency = _int_env("MAX_LATENCY_MS", 3000)
     min_speed = _float_env("MIN_SPEED_MBPS", 0.1)
     if benchmark_performed:
-        nodes = _filter_benchmarked_nodes(nodes, max_latency, min_speed)
+        nodes = _filter_benchmarked_nodes(
+            nodes,
+            max_latency,
+            min_speed,
+            require_speed=speed_test_enabled,
+        )
     nodes.sort(
         key=lambda node: (
             node.speed_mbps is None,

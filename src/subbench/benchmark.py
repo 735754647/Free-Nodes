@@ -43,6 +43,7 @@ class MihomoBenchmark:
         speed_limit: int,
         speed_timeout_seconds: int,
         workers: int,
+        speed_enabled: bool = True,
     ) -> None:
         self.binary = binary
         self.workdir = workdir
@@ -55,6 +56,7 @@ class MihomoBenchmark:
         self.speed_limit = speed_limit
         self.speed_timeout_seconds = max(1, speed_timeout_seconds)
         self.workers = max(1, workers)
+        self.speed_enabled = speed_enabled
         self.controller = "http://127.0.0.1:9090"
         self.proxy_port = 7890
         self.process: subprocess.Popen[str] | None = None
@@ -157,14 +159,25 @@ class MihomoBenchmark:
             except requests.RequestException:
                 continue
 
+    def select(self, node: Node) -> None:
+        selected = requests.put(
+            f"{self.controller}/proxies/BENCHMARK",
+            json={"name": node.name},
+            timeout=10,
+        )
+        selected.raise_for_status()
+
+    def locate(self, node: Node) -> Node:
+        try:
+            self.select(node)
+            self.geolocate(node)
+        except requests.RequestException as exc:
+            node.metadata["geo_error"] = str(exc)
+        return node
+
     def speed(self, node: Node) -> Node:
         try:
-            selected = requests.put(
-                f"{self.controller}/proxies/BENCHMARK",
-                json={"name": node.name},
-                timeout=10,
-            )
-            selected.raise_for_status()
+            self.select(node)
 
             started = time.monotonic()
             received = 0
@@ -190,6 +203,15 @@ class MihomoBenchmark:
         measured = self.benchmark_latency(nodes)
         valid = [node for node in measured if node.latency_ms is not None]
         valid.sort(key=lambda node: (node.latency_ms or 10**9, node.name))
+        if not self.speed_enabled:
+            total = len(valid)
+            for index, node in enumerate(valid, start=1):
+                self.locate(node)
+                if index % 50 == 0 or index == total:
+                    located = sum(bool(item.metadata.get("country_code")) for item in valid[:index])
+                    print(f"Location test {index}/{total}: {located} countries detected", flush=True)
+            return valid
+
         speed_candidates = valid if self.speed_limit <= 0 else valid[: self.speed_limit]
         total = len(speed_candidates)
         for index, node in enumerate(speed_candidates, start=1):

@@ -3,7 +3,8 @@ name: Build subscriptions
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 */6 * * *"
+    # 08:00 and 20:00 Asia/Shanghai (UTC+8)
+    - cron: "0 0,12 * * *"
   push:
     branches: [main]
     paths:
@@ -51,6 +52,8 @@ jobs:
           MAX_LATENCY_MS: "3000"
           MIN_SPEED_MBPS: "0.1"
           GEOIP_TEST_URLS: "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/"
+          # Set to "1" to enable download speed testing and MIN_SPEED_MBPS filtering.
+          SPEED_TEST_ENABLED: "0"
           SPEED_TEST_LIMIT: "0"
           SPEED_TEST_BYTES: "50000"
           SPEED_TIMEOUT_SECONDS: "8"
