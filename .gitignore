@@ -1,6 +1,8 @@
 /.bin/
 /.work/
 /public/
+/.work-local/
+/public-local/
 /.venv/
 __pycache__/
 *.py[cod]

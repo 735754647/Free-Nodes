@@ -62,6 +62,18 @@ proxies:
         )
         self.assertEqual(first.canonical_key(), second.canonical_key())
 
+    def test_shadowsocks_legacy_cipher_is_normalized(self):
+        credential = base64.urlsafe_b64encode(b"chacha20-poly1305:secret").decode().rstrip("=")
+        node = parse_uri(f"ss://{credential}@example.com:443#legacy", "test")
+        self.assertEqual(node.clash["cipher"], "chacha20-ietf-poly1305")
+        reparsed = parse_uri(node.uri, "test")
+        self.assertEqual(reparsed.clash["cipher"], "chacha20-ietf-poly1305")
+
+    def test_invalid_shadowsocks_cipher_is_rejected(self):
+        credential = base64.urlsafe_b64encode(b"ss:secret").decode().rstrip("=")
+        with self.assertRaisesRegex(ValueError, "unsupported Shadowsocks cipher"):
+            parse_uri(f"ss://{credential}@example.com:443#invalid", "test")
+
 
 if __name__ == "__main__":
     unittest.main()

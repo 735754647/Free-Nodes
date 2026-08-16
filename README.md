@@ -30,6 +30,7 @@
 - 根据协议参数进行规范化去重，而不是只比较节点名称
 - 使用 Mihomo 测试代理连通性、延迟和限定大小的下载速度
 - 自动过滤不可用节点，并按速度和延迟排序
+- 通过代理出口 IP 识别国家，并将节点重命名为 `🇺🇸 US | VLESS | 001` 格式
 - 每 6 小时自动更新，也支持在 Actions 页面手动运行
 - 生成 V2Ray、Clash/Mihomo、原始链接和 JSON 报告
 
@@ -74,13 +75,15 @@ Value: 每行一个订阅地址
 
 | 环境变量 | 默认值 | 用途 |
 | --- | ---: | --- |
-| `MAX_NODES` | `120` | 进入测速阶段的最大节点数量 |
-| `MAX_OUTPUT_NODES` | `100` | 最终发布的最大节点数量 |
-| `MAX_LATENCY_MS` | `5000` | 最大允许延迟 |
-| `MIN_SPEED_MBPS` | `0` | 最低下载速度 |
-| `SPEED_TEST_LIMIT` | `50` | 执行下载测速的节点数量 |
-| `SPEED_TEST_BYTES` | `1000000` | 每个节点最多下载的字节数 |
-| `BENCHMARK_WORKERS` | `6` | 并发延迟测试数量 |
+| `MAX_NODES` | `0` | `0` 表示对全部去重后的候选节点进行测速 |
+| `MAX_OUTPUT_NODES` | `0` | `0` 表示发布全部通过延迟和下载测速的可用节点 |
+| `MAX_LATENCY_MS` | `3000` | 最大允许延迟 |
+| `MIN_SPEED_MBPS` | `0.1` | 最低下载速度；低于 `0.1 Mbps` 或未完成下载测速的节点不会发布 |
+| `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
+| `SPEED_TEST_LIMIT` | `0` | `0` 表示对全部延迟测试通过的节点执行下载测速 |
+| `SPEED_TEST_BYTES` | `300000` | 云端每个节点最多下载的字节数 |
+| `SPEED_TIMEOUT_SECONDS` | `15` | 单个节点下载测速超时 |
+| `BENCHMARK_WORKERS` | `24` | 并发延迟测试数量 |
 
 测速运行在 GitHub 托管的服务器上，结果反映的是 GitHub Runner 所在网络到节点的质量，并不等于你本地网络的实际体验。
 
@@ -94,6 +97,14 @@ python -m unittest discover -s tests -v
 python scripts/install_mihomo.py --output .bin/mihomo.exe
 python -m subbench run --mihomo .bin/mihomo.exe
 ```
+
+Windows 用户也可以直接运行本地线路测速脚本：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/test_local.ps1
+```
+
+本地结果写入 `public-local/`，其延迟和速度更接近当前电脑运行 v2rayN 时的实际线路。GitHub Pages 上的订阅仍由 GitHub 托管服务器测速。
 
 生成文件位于 `public/`。只想检查解析和订阅生成时，可以使用：
 
@@ -141,6 +152,7 @@ Before the first deployment, open `Settings → Pages` and select **GitHub Actio
 - Deduplicates nodes by normalized connection parameters
 - Uses Mihomo for real proxy connectivity, latency, and bounded download tests
 - Filters failed nodes and sorts successful results by speed and latency
+- Detects the proxy exit country and renames nodes like `🇺🇸 US | VLESS | 001`
 - Runs every six hours and supports manual workflow dispatch
 - Publishes V2Ray, Clash/Mihomo, raw-link, and JSON report outputs
 
@@ -172,13 +184,15 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 
 | Variable | Default | Purpose |
 | --- | ---: | --- |
-| `MAX_NODES` | `120` | Maximum candidates sent to Mihomo |
-| `MAX_OUTPUT_NODES` | `100` | Maximum published nodes |
-| `MAX_LATENCY_MS` | `5000` | Maximum accepted latency |
-| `MIN_SPEED_MBPS` | `0` | Minimum accepted download speed |
-| `SPEED_TEST_LIMIT` | `50` | Number of nodes receiving a download test |
-| `SPEED_TEST_BYTES` | `1000000` | Maximum bytes downloaded per tested node |
-| `BENCHMARK_WORKERS` | `6` | Concurrent latency checks |
+| `MAX_NODES` | `0` | `0` benchmarks every deduplicated candidate |
+| `MAX_OUTPUT_NODES` | `0` | `0` publishes every node that passes latency and download testing |
+| `MAX_LATENCY_MS` | `3000` | Maximum accepted latency |
+| `MIN_SPEED_MBPS` | `0.1` | Minimum download speed; nodes below `0.1 Mbps` or without a completed speed test are rejected |
+| `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |
+| `SPEED_TEST_LIMIT` | `0` | `0` tests every node that passes the latency check |
+| `SPEED_TEST_BYTES` | `300000` | Maximum bytes downloaded per node in CI |
+| `SPEED_TIMEOUT_SECONDS` | `15` | Per-node download-test timeout |
+| `BENCHMARK_WORKERS` | `24` | Concurrent latency checks |
 
 GitHub-hosted runners have different routes and locations from your local network, so benchmark results are useful for filtering but cannot predict every user's connection quality.
 
@@ -192,6 +206,14 @@ python -m unittest discover -s tests -v
 python scripts/install_mihomo.py --output .bin/mihomo.exe
 python -m subbench run --mihomo .bin/mihomo.exe
 ```
+
+Windows users can benchmark from their current local network with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/test_local.ps1
+```
+
+Local results are written to `public-local/`. They better represent the route used by v2rayN on that computer, while the GitHub Pages subscriptions are still benchmarked from a GitHub-hosted runner.
 
 Generated subscriptions are written to `public/`. Use `python -m subbench run --skip-benchmark` when you only need to verify parsing and output generation.
 

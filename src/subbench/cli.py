@@ -26,6 +26,39 @@ def _float_env(name: str, default: float) -> float:
         return default
 
 
+def _filter_benchmarked_nodes(nodes: list[Node], max_latency: int, min_speed: float) -> list[Node]:
+    return [
+        node
+        for node in nodes
+        if node.error is None
+        and node.latency_ms is not None
+        and node.latency_ms <= max_latency
+        and node.speed_mbps is not None
+        and node.speed_mbps >= min_speed
+    ]
+
+
+def _country_flag(country_code: str) -> str:
+    code = country_code.upper()
+    if len(code) != 2 or not code.isalpha():
+        return "🏳️"
+    return "".join(chr(ord(character) + 127397) for character in code)
+
+
+def _rename_nodes_by_country(nodes: list[Node]) -> None:
+    counters: dict[tuple[str, str], int] = {}
+    for node in nodes:
+        country_code = str(node.metadata.get("country_code", "UN")).upper()
+        if len(country_code) != 2 or not country_code.isalpha():
+            country_code = "UN"
+        protocol = node.scheme.upper()
+        key = (country_code, protocol)
+        counters[key] = counters.get(key, 0) + 1
+        node.name = f"{_country_flag(country_code)} {country_code} | {protocol} | {counters[key]:03d}"
+        if node.clash:
+            node.clash["name"] = node.name
+
+
 def run(args: argparse.Namespace) -> int:
     source_specs = load_sources(args.sources)
     if not source_specs:
@@ -49,12 +82,18 @@ def run(args: argparse.Namespace) -> int:
     unique: dict[str, Node] = {}
     for node in nodes:
         unique.setdefault(node.canonical_key(), node)
-    nodes = list(unique.values())[: _int_env("MAX_NODES", 300)]
+    nodes = list(unique.values())
+    max_nodes = _int_env("MAX_NODES", 300)
+    if max_nodes > 0:
+        nodes = nodes[:max_nodes]
     if not nodes:
         raise RuntimeError("Sources were fetched, but no supported nodes were found.")
+    for node in nodes:
+        node.metadata.setdefault("original_name", node.name)
     prepare_names(nodes)
 
     mihomo = Path(args.mihomo)
+    benchmark_performed = False
     if args.skip_benchmark:
         print("Benchmark skipped; publishing parsed nodes.")
     elif not mihomo.exists():
@@ -70,22 +109,24 @@ def run(args: argparse.Namespace) -> int:
                 "SPEED_TEST_URL",
                 "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country.mmdb",
             ),
+            geo_url=os.environ.get(
+                "GEOIP_TEST_URLS",
+                "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/",
+            ),
             timeout_ms=_int_env("LATENCY_TIMEOUT_MS", 8000),
             speed_bytes=_int_env("SPEED_TEST_BYTES", 1_000_000),
-            speed_limit=_int_env("SPEED_TEST_LIMIT", 50),
+            speed_limit=_int_env("SPEED_TEST_LIMIT", 0),
+            speed_timeout_seconds=_int_env("SPEED_TIMEOUT_SECONDS", 15),
             workers=_int_env("BENCHMARK_WORKERS", 12),
         ) as benchmark:
+            benchmark_performed = True
             write_mihomo_config(workdir / "mihomo-nodes.yaml", nodes)
             nodes = benchmark.benchmark(nodes)
 
-    max_latency = _int_env("MAX_LATENCY_MS", 5000)
-    min_speed = _float_env("MIN_SPEED_MBPS", 0.0)
-    nodes = [
-        node
-        for node in nodes
-        if (node.latency_ms is None or node.latency_ms <= max_latency)
-        and (node.speed_mbps is None or node.speed_mbps >= min_speed)
-    ]
+    max_latency = _int_env("MAX_LATENCY_MS", 3000)
+    min_speed = _float_env("MIN_SPEED_MBPS", 0.1)
+    if benchmark_performed:
+        nodes = _filter_benchmarked_nodes(nodes, max_latency, min_speed)
     nodes.sort(
         key=lambda node: (
             node.speed_mbps is None,
@@ -94,7 +135,11 @@ def run(args: argparse.Namespace) -> int:
             node.latency_ms or 10**9,
         )
     )
-    nodes = nodes[: _int_env("MAX_OUTPUT_NODES", 100)]
+    max_output_nodes = _int_env("MAX_OUTPUT_NODES", 100)
+    if max_output_nodes > 0:
+        nodes = nodes[:max_output_nodes]
+    if benchmark_performed:
+        _rename_nodes_by_country(nodes)
     if not nodes:
         failures = "; ".join(node.error or "unknown error" for node in unique.values() if node.error)
         raise RuntimeError(f"All nodes failed the configured latency/speed filters. {failures[:1000]}")

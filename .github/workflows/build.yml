@@ -43,11 +43,15 @@ jobs:
       - name: Build subscriptions
         env:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
-          MAX_NODES: "120"
-          MAX_OUTPUT_NODES: "100"
-          SPEED_TEST_LIMIT: "50"
-          SPEED_TEST_BYTES: "1000000"
-          BENCHMARK_WORKERS: "6"
+          MAX_NODES: "0"
+          MAX_OUTPUT_NODES: "0"
+          MAX_LATENCY_MS: "3000"
+          MIN_SPEED_MBPS: "0.1"
+          GEOIP_TEST_URLS: "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/"
+          SPEED_TEST_LIMIT: "0"
+          SPEED_TEST_BYTES: "300000"
+          SPEED_TIMEOUT_SECONDS: "15"
+          BENCHMARK_WORKERS: "24"
         run: subbench run --mihomo .bin/mihomo --output public --workdir .work
 
       - name: Upload Pages artifact

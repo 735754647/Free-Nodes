@@ -38,6 +38,47 @@ def _truthy(value: str) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+def _normalize_ss_cipher(value: str) -> str:
+    aliases = {
+        "chacha20-poly1305": "chacha20-ietf-poly1305",
+        "xchacha20-poly1305": "xchacha20-ietf-poly1305",
+    }
+    normalized = value.strip().lower()
+    normalized = aliases.get(normalized, normalized)
+    aes_methods = {
+        f"aes-{bits}-{mode}"
+        for bits in (128, 192, 256)
+        for mode in ("ctr", "cfb", "gcm", "ccm")
+    }
+    supported = aes_methods | {
+        "aes-128-gcm-siv",
+        "aes-256-gcm-siv",
+        "chacha20-ietf",
+        "chacha20",
+        "xchacha20",
+        "chacha20-ietf-poly1305",
+        "xchacha20-ietf-poly1305",
+        "chacha8-ietf-poly1305",
+        "xchacha8-ietf-poly1305",
+        "2022-blake3-aes-128-gcm",
+        "2022-blake3-aes-256-gcm",
+        "2022-blake3-chacha20-poly1305",
+        "lea-128-gcm",
+        "lea-192-gcm",
+        "lea-256-gcm",
+        "rabbit128-poly1305",
+        "aegis-128l",
+        "aegis-256",
+        "aez-384",
+        "deoxys-ii-256-128",
+        "rc4-md5",
+        "none",
+    }
+    if normalized not in supported:
+        raise ValueError(f"unsupported Shadowsocks cipher: {normalized}")
+    return normalized
+
+
 def _credential(parsed: Any) -> str:
     authority = parsed.netloc.rsplit("@", 1)[0] if "@" in parsed.netloc else ""
     return unquote(authority)
@@ -249,6 +290,8 @@ def _parse_shadowsocks(uri: str, source: str) -> Node:
     if ":" not in user_info:
         user_info = _b64decode(user_info).decode("utf-8")
     method, password = user_info.split(":", 1)
+    method = _normalize_ss_cipher(unquote(method))
+    password = unquote(password)
     parsed_host = urlsplit(f"ss://x@{host_port}")
     if not parsed_host.hostname or not parsed_host.port:
         raise ValueError("invalid Shadowsocks URI")
@@ -258,8 +301,8 @@ def _parse_shadowsocks(uri: str, source: str) -> Node:
         "type": "ss",
         "server": parsed_host.hostname,
         "port": parsed_host.port,
-        "cipher": unquote(method),
-        "password": unquote(password),
+        "cipher": method,
+        "password": password,
         "udp": True,
     }
     query = parse_qs(query_string, keep_blank_values=True)
@@ -280,7 +323,13 @@ def _parse_shadowsocks(uri: str, source: str) -> Node:
                 options[key] = value
         if options:
             proxy["plugin-opts"] = options
-    return Node(uri=uri, scheme="ss", name=name, clash=proxy, source=source)
+    credential = _b64encode(f"{method}:{password}".encode("utf-8"))
+    normalized_uri = f"ss://{credential}@{_host_for_uri(parsed_host.hostname)}:{parsed_host.port}"
+    if query_string:
+        normalized_uri += f"?{query_string}"
+    if fragment:
+        normalized_uri += f"#{fragment}"
+    return Node(uri=normalized_uri, scheme="ss", name=name, clash=proxy, source=source)
 
 
 def _parse_hysteria2(uri: str, source: str) -> Node:
@@ -349,6 +398,8 @@ def parse_clash_proxy(proxy: dict[str, Any], source: str) -> Node:
         raise ValueError("missing Clash endpoint")
     name = str(clash.get("name") or f"{scheme.upper()} {clash['server']}:{clash['port']}")
     clash["name"] = name
+    if scheme == "ss" and clash.get("cipher"):
+        clash["cipher"] = _normalize_ss_cipher(str(clash["cipher"]))
     uri = clash_to_uri(clash)
     return Node(uri=uri, scheme=scheme, name=name, clash=clash, source=source)
 

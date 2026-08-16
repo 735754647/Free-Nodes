@@ -13,6 +13,22 @@ import requests
 from .models import Node
 
 
+def _parse_geo_payload(text: str) -> tuple[str | None, str | None]:
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        payload = {}
+        for line in text.splitlines():
+            key, separator, value = line.partition("=")
+            if separator:
+                payload[key.strip()] = value.strip()
+    country_code = str(payload.get("country") or payload.get("loc") or "").upper()
+    if len(country_code) != 2 or not country_code.isalpha():
+        country_code = ""
+    exit_ip = str(payload.get("ip") or payload.get("clientIp") or "").strip()
+    return country_code or None, exit_ip or None
+
+
 class MihomoBenchmark:
     def __init__(
         self,
@@ -21,9 +37,11 @@ class MihomoBenchmark:
         nodes: list[Node],
         latency_url: str,
         speed_url: str,
+        geo_url: str,
         timeout_ms: int,
         speed_bytes: int,
         speed_limit: int,
+        speed_timeout_seconds: int,
         workers: int,
     ) -> None:
         self.binary = binary
@@ -31,9 +49,11 @@ class MihomoBenchmark:
         self.nodes = nodes
         self.latency_url = latency_url
         self.speed_url = speed_url
+        self.geo_urls = [item.strip() for item in geo_url.split(",") if item.strip()]
         self.timeout_ms = timeout_ms
         self.speed_bytes = speed_bytes
         self.speed_limit = speed_limit
+        self.speed_timeout_seconds = max(1, speed_timeout_seconds)
         self.workers = max(1, workers)
         self.controller = "http://127.0.0.1:9090"
         self.proxy_port = 7890
@@ -109,7 +129,14 @@ class MihomoBenchmark:
     def benchmark_latency(self, nodes: list[Node]) -> list[Node]:
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
             futures = [executor.submit(self.latency, node) for node in nodes]
-            return [future.result() for future in as_completed(futures)]
+            measured: list[Node] = []
+            total = len(futures)
+            for index, future in enumerate(as_completed(futures), start=1):
+                measured.append(future.result())
+                if index % 100 == 0 or index == total:
+                    usable = sum(node.latency_ms is not None for node in measured)
+                    print(f"Latency test {index}/{total}: {usable} reachable", flush=True)
+            return measured
 
     def speed(self, node: Node) -> Node:
         try:
@@ -120,13 +147,31 @@ class MihomoBenchmark:
             )
             selected.raise_for_status()
 
+            for geo_url in self.geo_urls:
+                try:
+                    location = requests.get(
+                        geo_url,
+                        proxies={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"},
+                        timeout=(5, 8),
+                    )
+                    location.raise_for_status()
+                    country_code, exit_ip = _parse_geo_payload(location.text)
+                    if country_code:
+                        node.metadata["country_code"] = country_code
+                    if exit_ip:
+                        node.metadata["exit_ip"] = exit_ip
+                    if country_code:
+                        break
+                except requests.RequestException:
+                    continue
+
             started = time.monotonic()
             received = 0
             with requests.get(
                 self.speed_url,
                 proxies={"http": "http://127.0.0.1:7890", "https": "http://127.0.0.1:7890"},
                 stream=True,
-                timeout=(10, 30),
+                timeout=(min(10, self.speed_timeout_seconds), self.speed_timeout_seconds),
             ) as response:
                 response.raise_for_status()
                 for chunk in response.iter_content(chunk_size=64 * 1024):
@@ -143,8 +188,12 @@ class MihomoBenchmark:
         measured = self.benchmark_latency(nodes)
         valid = [node for node in measured if node.latency_ms is not None]
         valid.sort(key=lambda node: (node.latency_ms or 10**9, node.name))
-        for node in valid[: self.speed_limit]:
+        speed_candidates = valid if self.speed_limit <= 0 else valid[: self.speed_limit]
+        total = len(speed_candidates)
+        for index, node in enumerate(speed_candidates, start=1):
             self.speed(node)
+            result = f"{node.speed_mbps} Mbps" if node.speed_mbps is not None else node.error or "failed"
+            print(f"Speed test {index}/{total}: {node.name} - {result}", flush=True)
         return valid
 
 

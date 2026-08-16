@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import yaml
 
@@ -29,11 +31,26 @@ def prepare_names(nodes: list[Node]) -> None:
             node.clash["name"] = node.name
 
 
+def _rename_uri(uri: str, scheme: str, name: str) -> str:
+    if scheme == "vmess" and uri.startswith("vmess://"):
+        try:
+            encoded = uri.split("://", 1)[1].split("#", 1)[0]
+            padded = encoded + "=" * (-len(encoded) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+            payload["ps"] = name
+            rendered = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            return "vmess://" + base64.urlsafe_b64encode(rendered).decode("ascii").rstrip("=")
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError, binascii.Error):
+            return uri
+    main = uri.split("#", 1)[0]
+    return f"{main}#{quote(name, safe='')}"
+
+
 def write_outputs(output_dir: Path, nodes: list[Node], source_errors: list[dict[str, str]]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     prepare_names(nodes)
 
-    uris = [node.uri for node in nodes if node.uri]
+    uris = [_rename_uri(node.uri, node.scheme, node.name) for node in nodes if node.uri]
     raw = "\n".join(uris) + ("\n" if uris else "")
     encoded = base64.b64encode(raw.encode("utf-8")).decode("ascii")
     (output_dir / "v2ray.txt").write_text(encoded + "\n", encoding="ascii")
