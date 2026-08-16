@@ -65,7 +65,7 @@ def run(args: argparse.Namespace) -> int:
             binary=mihomo,
             workdir=workdir,
             nodes=nodes,
-            latency_url=os.environ.get("LATENCY_TEST_URL", "https://www.gstatic.com/generate_204"),
+            latency_url=os.environ.get("LATENCY_TEST_URL", "https://www.google.com/generate_204"),
             speed_url=os.environ.get(
                 "SPEED_TEST_URL",
                 "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country.mmdb",

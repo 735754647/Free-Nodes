@@ -52,7 +52,7 @@ def write_outputs(output_dir: Path, nodes: list[Node], source_errors: list[dict[
             {
                 "name": "AUTO",
                 "type": "url-test",
-                "url": "https://www.gstatic.com/generate_204",
+                "url": "https://www.google.com/generate_204",
                 "interval": 300,
                 "tolerance": 100,
                 "proxies": names,

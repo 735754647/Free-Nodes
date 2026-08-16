@@ -163,7 +163,7 @@ def write_mihomo_config(path: Path, nodes: list[Node]) -> None:
             {
                 "name": "AUTO",
                 "type": "url-test",
-                "url": "https://www.gstatic.com/generate_204",
+                "url": "https://www.google.com/generate_204",
                 "interval": 300,
                 "tolerance": 100,
                 "proxies": names,
