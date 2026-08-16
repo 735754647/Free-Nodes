@@ -242,4 +242,5 @@ This repository is intended for technical research, network testing, and automat
 - [Mihomo](https://github.com/MetaCubeX/mihomo)
 - [free18/v2ray](https://github.com/free18/v2ray)
 - [AutoMergePublicNodes](https://github.com/chengaopan/AutoMergePublicNodes)
+- [NoMoreWalls](https://github.com/peasoft/NoMoreWalls)
 - [ConfigForge-V2Ray](https://github.com/ShatakVPN/ConfigForge-V2Ray)
