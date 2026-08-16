@@ -70,6 +70,12 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(first.name, "🇺🇸 美国 | VLESS | 001")
         self.assertEqual(second.name, "🇺🇸 美国 | VLESS | 002")
 
+    def test_less_common_country_uses_chinese_name(self):
+        node = make_node("upstream", 100, 5.0)
+        node.metadata["country_code"] = "BA"
+        _rename_nodes_by_country([node])
+        self.assertEqual(node.name, "🇧🇦 波黑 | VLESS | 001")
+
     def test_cloudflare_trace_geo_payload(self):
         country, exit_ip = _parse_geo_payload("ip=203.0.113.10\nloc=JP\ncolo=NRT\n")
         self.assertEqual(country, "JP")
