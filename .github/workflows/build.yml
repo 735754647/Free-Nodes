@@ -38,29 +38,44 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          # Resolve an available Python 3.x; the project requires Python >= 3.11.
-          python-version: "3.x"
-
       - name: Check Python version
         shell: powershell -ExecutionPolicy Bypass -File {0}
         run: |
-          $version = python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+          $pythonExe = $null
+          $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
+          if ($launcher) {
+            $candidate = (& $launcher.Source -3 -c "import sys; print(sys.executable)" 2>$null | Select-Object -Last 1).Trim()
+            if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+              $pythonExe = $candidate
+            }
+          }
+          if (-not $pythonExe) {
+            $python = Get-Command python.exe -ErrorAction SilentlyContinue
+            if ($python) {
+              $pythonExe = $python.Source
+            }
+          }
+          if (-not $pythonExe) {
+            throw "No Python 3 installation was found on the self-hosted runner."
+          }
+          $version = (& $pythonExe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
           if ([version]$version -lt [version]'3.11') {
             throw "Python $version is too old; this project requires Python 3.11 or newer."
           }
-          Write-Host "Using Python $version"
+          "PYTHON_EXE=$pythonExe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Using Python $version at $pythonExe"
 
       - name: Install project
         run: |
-          python -m pip install --upgrade pip
+          & $env:PYTHON_EXE -m pip install --upgrade pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install .
+          & $env:PYTHON_EXE -m pip install .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install Mihomo
-        run: python scripts/install_mihomo.py --output .bin/mihomo.exe
+        run: |
+          & $env:PYTHON_EXE scripts/install_mihomo.py --output .bin/mihomo.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build subscriptions
         env:
@@ -91,7 +106,9 @@ jobs:
           SPEED_TEST_BYTES: "1000000"
           SPEED_TIMEOUT_SECONDS: "8"
           BENCHMARK_WORKERS: "24"
-        run: subbench run --mihomo .bin/mihomo.exe --output public --workdir .work
+        run: |
+          & $env:PYTHON_EXE -m subbench run --mihomo .bin/mihomo.exe --output public --workdir .work
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
