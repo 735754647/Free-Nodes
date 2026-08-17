@@ -3,8 +3,9 @@ name: Build subscriptions
 on:
   workflow_dispatch:
   schedule:
-    # 08:00 and 20:00 Asia/Shanghai (UTC+8)
-    - cron: "0 0,12 * * *"
+    # 08:30 and 17:00 Asia/Shanghai (UTC+8)
+    - cron: "30 0 * * *"
+    - cron: "0 9 * * *"
   push:
     branches: [main]
     paths:
@@ -30,6 +31,9 @@ jobs:
       - self-hosted
       - Windows
       - X64
+    defaults:
+      run:
+        shell: powershell -ExecutionPolicy Bypass -File {0}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -40,14 +44,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install project
-        shell: pwsh
         run: |
           python -m pip install --upgrade pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install .
 
       - name: Install Mihomo
-        shell: pwsh
         run: python scripts/install_mihomo.py --output .bin/mihomo.exe
 
       - name: Build subscriptions
@@ -79,7 +81,6 @@ jobs:
           SPEED_TEST_BYTES: "1000000"
           SPEED_TIMEOUT_SECONDS: "8"
           BENCHMARK_WORKERS: "24"
-        shell: pwsh
         run: subbench run --mihomo .bin/mihomo.exe --output public --workdir .work
 
       - name: Upload Pages artifact
