@@ -84,7 +84,8 @@ Value: 每行一个订阅地址
 | `TCP_PREFILTER_WORKERS` | `64` | 并发入口端口检测数量 |
 | `ALIYUN_FC_URL` | Secret，可选 | 使用阿里云函数从杭州逐个复核入口端口；未配置时自动跳过 |
 | `ALIYUN_FC_TIMEOUT_SECONDS` | `10` | 单次阿里云函数请求超时 |
-| `ALIYUN_FC_INTERVAL_SECONDS` | `0.2` | 串行阿里云检测之间的等待时间；不会增加并发数 |
+| `ALIYUN_FC_INTERVAL_SECONDS` | `0.2` | 随机等待的中心值（配合抖动后为 0.1～0.3 秒） |
+| `ALIYUN_FC_JITTER_SECONDS` | `0.1` | 随机等待抖动范围；请求仍保持串行 |
 | `ALIYUN_FC_MAX_CONSECUTIVE_ERRORS` | `3` | 连续请求异常后停止远程检测并保留未检测节点 |
 | `MAX_LATENCY_MS` | `3000` | 最大允许延迟 |
 | `LATENCY_TEST_ATTEMPTS` | `2` | Google 204 首次失败时重试一次，降低瞬时网络抖动导致的误删 |
@@ -211,7 +212,8 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `TCP_PREFILTER_WORKERS` | `64` | Concurrent entry-port checks |
 | `ALIYUN_FC_URL` | Optional secret | Rechecks entry ports sequentially from Alibaba Cloud Hangzhou; skipped when unset |
 | `ALIYUN_FC_TIMEOUT_SECONDS` | `10` | Timeout for each Alibaba Cloud function request |
-| `ALIYUN_FC_INTERVAL_SECONDS` | `0.2` | Delay between serial Alibaba Cloud checks; concurrency remains one |
+| `ALIYUN_FC_INTERVAL_SECONDS` | `0.2` | Center value for randomized delay (0.1–0.3 seconds with jitter) |
+| `ALIYUN_FC_JITTER_SECONDS` | `0.1` | Randomized delay range; requests remain serial |
 | `ALIYUN_FC_MAX_CONSECUTIVE_ERRORS` | `3` | Stops remote checks after consecutive request errors and preserves untested nodes |
 | `MAX_LATENCY_MS` | `3000` | Maximum accepted latency |
 | `LATENCY_TEST_ATTEMPTS` | `2` | Retries the Google 204 check once after an initial failure to reduce transient false negatives |

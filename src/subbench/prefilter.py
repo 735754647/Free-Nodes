@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import socket
 import time
+import random
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
@@ -15,6 +16,7 @@ from .models import Node
 Endpoint = tuple[str, int]
 Connector = Callable[[Endpoint, float], object]
 Requester = Callable[..., Any]
+Randomizer = Callable[[float, float], float]
 
 
 def normalize_aliyun_url(value: str) -> str:
@@ -104,6 +106,8 @@ def aliyun_tcp_prefilter(
     max_consecutive_errors: int = 3,
     requester: Requester | None = None,
     sleeper: Callable[[float], None] = time.sleep,
+    randomizer: Randomizer = random.uniform,
+    interval_jitter_seconds: float = 0.1,
 ) -> list[Node]:
     endpoint_nodes: dict[Endpoint, list[Node]] = defaultdict(list)
     for node in nodes:
@@ -135,9 +139,11 @@ def aliyun_tcp_prefilter(
     error_samples: list[str] = []
     error_limit = max(1, max_consecutive_errors)
     progress_interval = 10
+    interval_low = max(0.0, interval_seconds - abs(interval_jitter_seconds))
+    interval_high = max(interval_low, interval_seconds + abs(interval_jitter_seconds))
     print(
         f"Aliyun FC TCP prefilter starting: {len(endpoints)} unique endpoints, "
-        f"{interval_seconds:.1f}s interval.",
+        f"random {interval_low:.1f}-{interval_high:.1f}s interval.",
         flush=True,
     )
     try:
@@ -167,7 +173,7 @@ def aliyun_tcp_prefilter(
                     )
                     break
             finally:
-                sleeper(max(0.0, interval_seconds))
+                sleeper(randomizer(interval_low, interval_high))
 
             if index % progress_interval == 0 or index == len(endpoints):
                 reachable = sum(results.values())

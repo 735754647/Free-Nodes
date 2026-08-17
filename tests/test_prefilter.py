@@ -90,6 +90,7 @@ class TcpPrefilterTests(unittest.TestCase):
             url="http://fc.example/",
             requester=requester,
             sleeper=waits.append,
+            randomizer=lambda low, high: 0.2,
         )
         self.assertEqual([node.name for node in kept], ["one", "two"])
         self.assertEqual(len(requests_made), 2)

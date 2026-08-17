@@ -98,6 +98,7 @@ jobs:
           ALIYUN_FC_TIMEOUT_SECONDS: "10"
           # Requests remain strictly serial; this only shortens idle time between checks.
           ALIYUN_FC_INTERVAL_SECONDS: "0.2"
+          ALIYUN_FC_JITTER_SECONDS: "0.1"
           ALIYUN_FC_MAX_CONSECUTIVE_ERRORS: "3"
           MAX_LATENCY_MS: "3000"
           LATENCY_TEST_ATTEMPTS: "2"
