@@ -93,7 +93,7 @@ class TcpPrefilterTests(unittest.TestCase):
         )
         self.assertEqual([node.name for node in kept], ["one", "two"])
         self.assertEqual(len(requests_made), 2)
-        self.assertEqual(waits, [1.5, 1.5])
+        self.assertEqual(waits, [0.2, 0.2])
         self.assertTrue(all(node.metadata.get("aliyun_tcp_reachable") for node in kept))
 
     def test_aliyun_prefilter_fails_open_when_service_is_unavailable(self):

@@ -177,7 +177,7 @@ def run(args: argparse.Namespace) -> int:
                 nodes,
                 url=aliyun_fc_url,
                 timeout_seconds=_float_env("ALIYUN_FC_TIMEOUT_SECONDS", 10.0),
-                interval_seconds=_float_env("ALIYUN_FC_INTERVAL_SECONDS", 1.5),
+                interval_seconds=_float_env("ALIYUN_FC_INTERVAL_SECONDS", 0.2),
                 max_consecutive_errors=_int_env("ALIYUN_FC_MAX_CONSECUTIVE_ERRORS", 3),
             )
     nodes.sort(

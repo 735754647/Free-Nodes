@@ -100,7 +100,7 @@ def aliyun_tcp_prefilter(
     nodes: list[Node],
     url: str,
     timeout_seconds: float = 10.0,
-    interval_seconds: float = 1.5,
+    interval_seconds: float = 0.2,
     max_consecutive_errors: int = 3,
     requester: Requester | None = None,
     sleeper: Callable[[float], None] = time.sleep,
