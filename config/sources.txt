@@ -17,6 +17,9 @@ https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/v2ra
 https://raw.githubusercontent.com/zhuhaiuk/free-nodes/main/nodes.txt
 https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub
 https://www.ermao.net/sub/v2ray/ermao.net
+https://raw.githubusercontent.com/sunmiao4458/free-proxy-airport/main/output/clash.yaml
+https://raw.githubusercontent.com/PrinceVSFX/Adapt-Configs/main/Configs/Adapt_VPN.txt
+https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS_mobile.txt
 # V2Nodes rotates its public subscription key. The landing page is resolved
 # automatically on every build, so no key needs to be stored here.
 V2Nodes (automatic key) | https://www.v2nodes.com/
