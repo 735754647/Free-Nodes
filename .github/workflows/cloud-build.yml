@@ -66,6 +66,8 @@ jobs:
 
       - name: Install Mihomo
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           cache_path=".cache/mihomo/mihomo"
           mkdir -p .cache/mihomo .bin

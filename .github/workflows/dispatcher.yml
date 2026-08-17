@@ -79,6 +79,8 @@ jobs:
             fi
           fi
 
+          echo "::notice title=Runner selection::${status_reason}"
+
           if [[ "${local_available}" == true ]]; then
             workflow="build.yml"
             echo "${status_reason}"

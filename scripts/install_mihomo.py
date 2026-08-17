@@ -14,8 +14,20 @@ import zipfile
 from pathlib import Path
 
 
+def github_api_headers() -> dict[str, str]:
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "node-subscription-builder/0.1",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def fetch_json(url: str) -> dict:
-    request = urllib.request.Request(url, headers={"User-Agent": "node-subscription-builder/0.1"})
+    request = urllib.request.Request(url, headers=github_api_headers())
     with urllib.request.urlopen(request, timeout=60) as response:
         return json.load(response)
 
