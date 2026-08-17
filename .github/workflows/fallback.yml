@@ -1,9 +1,12 @@
-name: Local runner fallback monitor
+name: Local runner safety fallback
 
 on:
+  workflow_run:
+    workflows: ["Build subscriptions (local)"]
+    types: [completed]
   workflow_dispatch:
   schedule:
-    # Check every ten minutes. GitHub cron is UTC.
+    # Safety net for a runner that disappears after the initial status check.
     - cron: "*/10 * * * *"
 
 permissions:
@@ -11,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: local-runner-fallback-monitor
+  group: local-runner-safety-fallback
   cancel-in-progress: true
 
 jobs:
@@ -20,8 +23,13 @@ jobs:
     env:
       LOCAL_WORKFLOW: build.yml
       CLOUD_WORKFLOW: cloud-build.yml
+      EVENT_NAME: ${{ github.event_name }}
+      WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+      WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+      WORKFLOW_RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
     steps:
-      - name: Start cloud fallback when local runner is unavailable
+      - name: Start cloud fallback when local execution fails or gets stuck
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -30,42 +38,55 @@ jobs:
         run: |
           set -euo pipefail
 
-          local_runs="$(gh api "repos/${REPOSITORY}/actions/workflows/${LOCAL_WORKFLOW}/runs?per_page=20")"
-          local_run="$(jq -c '[.workflow_runs[]] | sort_by(.created_at) | last // empty' <<<"${local_runs}")"
-          if [[ -z "${local_run}" ]]; then
-            echo "No local workflow runs found."
-            exit 0
-          fi
-
-          run_id="$(jq -r '.id' <<<"${local_run}")"
-          status="$(jq -r '.status' <<<"${local_run}")"
-          conclusion="$(jq -r '.conclusion // empty' <<<"${local_run}")"
-          created_at="$(jq -r '.created_at' <<<"${local_run}")"
-          updated_at="$(jq -r '.updated_at' <<<"${local_run}")"
-          head_sha="$(jq -r '.head_sha' <<<"${local_run}")"
-          head_branch="$(jq -r '.head_branch // env.DEFAULT_BRANCH' <<<"${local_run}")"
-          now="$(date +%s)"
-          created_epoch="$(date -d "${created_at}" +%s)"
-          updated_epoch="$(date -d "${updated_at}" +%s)"
-          queued_age=$((now - created_epoch))
-          running_age=$((now - updated_epoch))
-
-          echo "Latest local run: ${run_id}, status=${status}, conclusion=${conclusion}, queued_age=${queued_age}s"
-
-          reason=""
-          if [[ "${status}" == "queued" && ${queued_age} -ge 600 ]]; then
-            reason="local runner has been queued for more than 10 minutes"
-          elif [[ "${status}" == "completed" && "${conclusion}" != "success" ]]; then
+          if [[ "${EVENT_NAME}" == "workflow_run" ]]; then
+            if [[ "${WORKFLOW_RUN_CONCLUSION}" == "success" || "${WORKFLOW_RUN_CONCLUSION}" == "cancelled" || "${WORKFLOW_RUN_CONCLUSION}" == "skipped" ]]; then
+              echo "Local workflow ${WORKFLOW_RUN_ID} ended with ${WORKFLOW_RUN_CONCLUSION}; no fallback needed."
+              exit 0
+            fi
+            run_id="${WORKFLOW_RUN_ID}"
+            status="completed"
+            conclusion="${WORKFLOW_RUN_CONCLUSION:-unknown}"
+            head_sha="${WORKFLOW_RUN_SHA}"
+            head_branch="${WORKFLOW_RUN_BRANCH:-${DEFAULT_BRANCH}}"
             reason="local workflow ended with ${conclusion}"
-          elif [[ "${status}" == "in_progress" && ${running_age} -ge 3600 ]]; then
-            reason="local workflow has not updated for more than 60 minutes"
+            echo "Immediate fallback: ${reason}"
           else
-            echo "Local workflow is healthy or still within the grace period; no fallback needed."
-            exit 0
+            local_runs="$(gh api "repos/${REPOSITORY}/actions/workflows/${LOCAL_WORKFLOW}/runs?per_page=20")"
+            local_run="$(jq -c '[.workflow_runs[]] | sort_by(.created_at) | last // empty' <<<"${local_runs}")"
+            if [[ -z "${local_run}" ]]; then
+              echo "No local workflow runs found."
+              exit 0
+            fi
+
+            run_id="$(jq -r '.id' <<<"${local_run}")"
+            status="$(jq -r '.status' <<<"${local_run}")"
+            conclusion="$(jq -r '.conclusion // empty' <<<"${local_run}")"
+            created_at="$(jq -r '.created_at' <<<"${local_run}")"
+            updated_at="$(jq -r '.updated_at' <<<"${local_run}")"
+            head_sha="$(jq -r '.head_sha' <<<"${local_run}")"
+            head_branch="$(jq -r '.head_branch // env.DEFAULT_BRANCH' <<<"${local_run}")"
+            now="$(date +%s)"
+            created_epoch="$(date -d "${created_at}" +%s)"
+            updated_epoch="$(date -d "${updated_at}" +%s)"
+            queued_age=$((now - created_epoch))
+            running_age=$((now - updated_epoch))
+
+            echo "Latest local run: ${run_id}, status=${status}, conclusion=${conclusion}, queued_age=${queued_age}s"
+            reason=""
+            if [[ "${status}" == "queued" && ${queued_age} -ge 600 ]]; then
+              reason="local workflow has been queued for more than 10 minutes"
+            elif [[ "${status}" == "completed" && "${conclusion}" != "success" ]]; then
+              reason="local workflow ended with ${conclusion}"
+            elif [[ "${status}" == "in_progress" && ${running_age} -ge 3600 ]]; then
+              reason="local workflow has not updated for more than 60 minutes"
+            else
+              echo "Local workflow is healthy or still within the safety grace period; no fallback needed."
+              exit 0
+            fi
           fi
 
           cloud_runs="$(gh api "repos/${REPOSITORY}/actions/workflows/${CLOUD_WORKFLOW}/runs?per_page=50")"
-          existing_cloud="$(jq --arg sha "${head_sha}" --arg created "${created_at}" '[.workflow_runs[] | select(.head_sha == $sha and .created_at >= $created)] | length' <<<"${cloud_runs}")"
+          existing_cloud="$(jq --arg sha "${head_sha}" '[.workflow_runs[] | select(.head_sha == $sha)] | length' <<<"${cloud_runs}")"
           if [[ "${existing_cloud}" -gt 0 ]]; then
             echo "A cloud fallback already exists for ${head_sha}; nothing to do."
             exit 0

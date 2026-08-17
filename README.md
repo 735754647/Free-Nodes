@@ -101,7 +101,9 @@ Value: 每行一个订阅地址
 | `SPEED_TIMEOUT_SECONDS` | `8` | 单个节点下载测速读取超时 |
 | `BENCHMARK_WORKERS` | `24` | 并发延迟测试数量 |
 
-构建优先使用 Windows 自托管 Runner；本地 Runner 离线、失败或超时后才使用 GitHub 云端 Runner。测速结果反映实际执行 Runner 所在网络到节点的质量。
+构建调度器会先使用 `RUNNER_STATUS_TOKEN` 查询 Windows/X64 自托管 Runner：明确在线且空闲时立即使用本地 Runner；离线、忙碌、Token 缺失、权限不足、API 超时或返回异常时立即使用 GitHub 云端 Runner。本地任务执行失败时也会通过完成事件立即触发云端兜底，十分钟监控仅用于处理状态查询后电脑突然离线等极端情况。测速结果反映实际执行 Runner 所在网络到节点的质量。
+
+`RUNNER_STATUS_TOKEN` 应保存为 Actions Secret，仅需为本仓库授予 `Administration: Read-only`，不要写入代码、日志或公开配置。
 
 ### 本地运行
 
@@ -223,7 +225,9 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `SPEED_TIMEOUT_SECONDS` | `8` | Per-node download read timeout |
 | `BENCHMARK_WORKERS` | `24` | Concurrent latency checks |
 
-The workflow prefers the Windows self-hosted runner and falls back to a GitHub-hosted runner after local failure, unavailability, or timeout. Results reflect the network of whichever runner performed the checks.
+The dispatcher checks the Windows/X64 self-hosted runner with the `RUNNER_STATUS_TOKEN`. It immediately selects the local runner only when it is explicitly online and idle; an offline or busy runner, a missing or unauthorized token, an API timeout, or an invalid response immediately selects the GitHub-hosted runner. A failed local run triggers the cloud fallback through a completion event, while the ten-minute monitor remains only as a safety net for rare disconnects after routing. Results reflect the network of whichever runner performed the checks.
+
+Store `RUNNER_STATUS_TOKEN` as an Actions secret with only `Administration: Read-only` access to this repository. Never commit or print the token.
 
 ### Local Development
 

@@ -1,0 +1,94 @@
+name: Select local or cloud runner
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 08:30 and 17:00 Asia/Shanghai (UTC+8)
+    - cron: "30 0 * * *"
+    - cron: "0 9 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "config/**"
+      - "src/**"
+      - "scripts/**"
+      - "tests/**"
+      - ".github/workflows/**"
+      - "pyproject.toml"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: build-dispatcher
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    env:
+      REPOSITORY: ${{ github.repository }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      HEAD_BRANCH: ${{ github.ref_name }}
+      HEAD_SHA: ${{ github.sha }}
+      GH_TOKEN: ${{ github.token }}
+      RUNNER_STATUS_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+    steps:
+      - name: Select an available runner and dispatch the build
+        shell: bash
+        run: |
+          set -u
+
+          local_available=false
+          status_reason=""
+
+          if [[ -z "${RUNNER_STATUS_TOKEN:-}" ]]; then
+            status_reason="RUNNER_STATUS_TOKEN is missing; using cloud runner"
+          else
+            runner_response="$(curl --silent --show-error --fail-with-body \
+              --max-time 10 \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${RUNNER_STATUS_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${REPOSITORY}/actions/runners?per_page=100" 2>&1)"
+            curl_status=$?
+
+            if [[ ${curl_status} -ne 0 ]]; then
+              status_reason="Runner status API request failed (curl ${curl_status}); using cloud runner"
+            elif ! jq -e '.runners | type == "array"' >/dev/null <<<"${runner_response}"; then
+              status_reason="Runner status API returned invalid JSON; using cloud runner"
+            else
+              matching_runners="$(jq '[.runners[]? |
+                select(.status == "online" and .busy == false) |
+                ([.labels[]?.name | ascii_downcase]) as $labels |
+                select(($labels | index("windows")) != null and ($labels | index("x64")) != null)
+              ] | length' <<<"${runner_response}")"
+              if [[ "${matching_runners}" =~ ^[1-9][0-9]*$ ]]; then
+                local_available=true
+                status_reason="${matching_runners} Windows/X64 self-hosted runner(s) online and idle"
+              else
+                status_reason="No online idle Windows/X64 runner found; using cloud runner"
+              fi
+            fi
+          fi
+
+          if [[ "${local_available}" == true ]]; then
+            workflow="build.yml"
+            echo "${status_reason}"
+            echo "Dispatching local workflow for ${HEAD_SHA}"
+            gh workflow run "${workflow}" \
+              --repo "${REPOSITORY}" \
+              --ref "${HEAD_BRANCH:-${DEFAULT_BRANCH}}" \
+              -f "checkout_ref=${HEAD_SHA}"
+          else
+            workflow="cloud-build.yml"
+            echo "${status_reason}"
+            echo "Dispatching cloud workflow for ${HEAD_SHA}"
+            gh workflow run "${workflow}" \
+              --repo "${REPOSITORY}" \
+              --ref "${HEAD_BRANCH:-${DEFAULT_BRANCH}}" \
+              -f "checkout_ref=${HEAD_SHA}" \
+              -f "source_run_id=dispatcher-${GITHUB_RUN_ID}" \
+              -f "reason=${status_reason}"
+          fi
