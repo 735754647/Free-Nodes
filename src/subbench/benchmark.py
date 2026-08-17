@@ -255,6 +255,35 @@ def write_mihomo_config(
 ) -> None:
     import yaml
 
+    class QuotedYamlString(str):
+        pass
+
+    class MihomoSafeDumper(yaml.SafeDumper):
+        pass
+
+    MihomoSafeDumper.add_representer(
+        QuotedYamlString,
+        lambda dumper, value: dumper.represent_scalar(
+            "tag:yaml.org,2002:str",
+            value,
+            style='"',
+        ),
+    )
+
+    proxies: list[dict[str, Any]] = []
+    for node in nodes:
+        if not node.clash:
+            continue
+        proxy = dict(node.clash)
+        reality = proxy.get("reality-opts")
+        if isinstance(reality, dict) and "short-id" in reality:
+            reality = dict(reality)
+            # Go's YAML parser treats an unquoted value such as 09 as a number,
+            # drops the leading zero, and Mihomo then rejects the odd-length ID.
+            reality["short-id"] = QuotedYamlString(str(reality["short-id"]))
+            proxy["reality-opts"] = reality
+        proxies.append(proxy)
+
     names = [node.name for node in nodes if node.clash]
     document = {
         "mixed-port": 7890,
@@ -262,7 +291,7 @@ def write_mihomo_config(
         "mode": "rule",
         "log-level": "warning",
         "ipv6": False,
-        "proxies": [node.clash for node in nodes if node.clash],
+        "proxies": proxies,
         "proxy-groups": [
             {"name": "BENCHMARK", "type": "select", "proxies": names},
         ],
@@ -280,4 +309,7 @@ def write_mihomo_config(
             for index, node in enumerate(nodes, start=1)
             if node.clash and node.name in listener_ports
         ]
-    path.write_text(yaml.safe_dump(document, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    path.write_text(
+        yaml.dump(document, Dumper=MihomoSafeDumper, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )

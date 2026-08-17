@@ -181,6 +181,22 @@ class BenchmarkTests(unittest.TestCase):
             ],
         )
 
+    def test_reality_short_id_with_leading_zero_is_quoted(self):
+        node = make_node("reality")
+        node.clash["tls"] = True
+        node.clash["reality-opts"] = {
+            "public-key": "XmOcGjsWDWRVvRTF7rV77kRp63qwIYbQ_s-YK3U7FkM",
+            "short-id": "09",
+        }
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "benchmark.yaml"
+            write_mihomo_config(path, [node])
+            text = path.read_text(encoding="utf-8")
+            document = yaml.safe_load(text)
+
+        self.assertIn('short-id: "09"', text)
+        self.assertEqual(document["proxies"][0]["reality-opts"]["short-id"], "09")
+
 
 if __name__ == "__main__":
     unittest.main()
