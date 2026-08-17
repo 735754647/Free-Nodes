@@ -58,9 +58,26 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install .
 
+      - name: Cache Mihomo
+        uses: actions/cache@v4
+        with:
+          path: .cache/mihomo
+          key: mihomo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install_mihomo.py') }}
+
       - name: Install Mihomo
         shell: bash
-        run: python scripts/install_mihomo.py --output .bin/mihomo
+        run: |
+          cache_path=".cache/mihomo/mihomo"
+          mkdir -p .cache/mihomo .bin
+          if [[ -f "$cache_path" ]]; then
+            cp "$cache_path" .bin/mihomo
+            chmod +x .bin/mihomo
+            echo "Using cached Mihomo from $cache_path"
+          else
+            python scripts/install_mihomo.py --output "$cache_path"
+            cp "$cache_path" .bin/mihomo
+            chmod +x .bin/mihomo
+          fi
 
       - name: Build subscriptions
         shell: bash
