@@ -83,6 +83,7 @@ Value: 每行一个订阅地址
 | `TCP_CONNECT_ATTEMPTS` | `2` | TCP 首次失败时再尝试一次；首次成功不会重复连接 |
 | `TCP_PREFILTER_WORKERS` | `64` | 并发入口端口检测数量 |
 | `ALIYUN_FC_URL` | Secret，可选 | 使用阿里云函数从杭州逐个复核入口端口；未配置时自动跳过 |
+| `ALIYUN_FC_ENABLED` | `0` | 阿里云复核总开关；设置为 `1` 时启用 |
 | `ALIYUN_FC_TIMEOUT_SECONDS` | `10` | 单次阿里云函数请求超时 |
 | `ALIYUN_FC_WORKERS` | `10` | 阿里云复核最大并发请求数 |
 | `ALIYUN_FC_INTERVAL_SECONDS` | `0.2` | 随机等待的中心值（配合抖动后为 0.1～0.3 秒） |
@@ -212,6 +213,7 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `TCP_CONNECT_ATTEMPTS` | `2` | Retries TCP once after an initial failure; successful connections are not repeated |
 | `TCP_PREFILTER_WORKERS` | `64` | Concurrent entry-port checks |
 | `ALIYUN_FC_URL` | Optional secret | Rechecks entry ports sequentially from Alibaba Cloud Hangzhou; skipped when unset |
+| `ALIYUN_FC_ENABLED` | `0` | Master switch for Alibaba Cloud rechecks; set to `1` to enable |
 | `ALIYUN_FC_TIMEOUT_SECONDS` | `10` | Timeout for each Alibaba Cloud function request |
 | `ALIYUN_FC_WORKERS` | `10` | Maximum concurrent Alibaba Cloud recheck requests |
 | `ALIYUN_FC_INTERVAL_SECONDS` | `0.2` | Center value for randomized delay (0.1–0.3 seconds with jitter) |

@@ -165,23 +165,26 @@ def run(args: argparse.Namespace) -> int:
             min_speed,
             require_speed=speed_test_enabled,
         )
-        aliyun_fc_raw = os.environ.get("ALIYUN_FC_URL", "")
-        aliyun_fc_url = normalize_aliyun_url(aliyun_fc_raw)
-        if aliyun_fc_raw.strip() and not aliyun_fc_url:
-            print(
-                "Aliyun FC TCP prefilter skipped: ALIYUN_FC_URL must contain only the exact http:// or https:// URL.",
-                flush=True,
-            )
-        if aliyun_fc_url and nodes:
-            nodes = aliyun_tcp_prefilter(
-                nodes,
-                url=aliyun_fc_url,
-                timeout_seconds=_float_env("ALIYUN_FC_TIMEOUT_SECONDS", 10.0),
-                interval_seconds=_float_env("ALIYUN_FC_INTERVAL_SECONDS", 0.2),
-                interval_jitter_seconds=_float_env("ALIYUN_FC_JITTER_SECONDS", 0.1),
-                max_consecutive_errors=_int_env("ALIYUN_FC_MAX_CONSECUTIVE_ERRORS", 3),
-                workers=_int_env("ALIYUN_FC_WORKERS", 10),
-            )
+        if not _bool_env("ALIYUN_FC_ENABLED", True):
+            print("Aliyun FC TCP prefilter disabled.", flush=True)
+        else:
+            aliyun_fc_raw = os.environ.get("ALIYUN_FC_URL", "")
+            aliyun_fc_url = normalize_aliyun_url(aliyun_fc_raw)
+            if aliyun_fc_raw.strip() and not aliyun_fc_url:
+                print(
+                    "Aliyun FC TCP prefilter skipped: ALIYUN_FC_URL must contain only the exact http:// or https:// URL.",
+                    flush=True,
+                )
+            if aliyun_fc_url and nodes:
+                nodes = aliyun_tcp_prefilter(
+                    nodes,
+                    url=aliyun_fc_url,
+                    timeout_seconds=_float_env("ALIYUN_FC_TIMEOUT_SECONDS", 10.0),
+                    interval_seconds=_float_env("ALIYUN_FC_INTERVAL_SECONDS", 0.2),
+                    interval_jitter_seconds=_float_env("ALIYUN_FC_JITTER_SECONDS", 0.1),
+                    max_consecutive_errors=_int_env("ALIYUN_FC_MAX_CONSECUTIVE_ERRORS", 3),
+                    workers=_int_env("ALIYUN_FC_WORKERS", 10),
+                )
     nodes.sort(
         key=lambda node: (
             node.speed_mbps is None,

@@ -46,6 +46,7 @@ jobs:
         continue-on-error: true
         env:
           ALIYUN_FC_URL: ${{ secrets.ALIYUN_FC_URL }}
+          ALIYUN_FC_ENABLED: "0"
         run: |
           python - <<'PY'
           import os
@@ -53,6 +54,11 @@ jobs:
           import requests
 
           from urllib.parse import urlsplit
+
+          enabled = os.environ.get("ALIYUN_FC_ENABLED", "1").strip().lower()
+          if enabled not in {"1", "true", "yes", "on"}:
+              print("Aliyun FC probe skipped: ALIYUN_FC_ENABLED is disabled")
+              raise SystemExit(0)
 
           url = os.environ.get("ALIYUN_FC_URL", "").strip().strip("\"'").strip()
           if url.startswith("<") and url.endswith(">"):
@@ -90,6 +96,8 @@ jobs:
         env:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
           ALIYUN_FC_URL: ${{ secrets.ALIYUN_FC_URL }}
+          # Set to "1" to enable Alibaba Cloud TCP rechecks.
+          ALIYUN_FC_ENABLED: "0"
           MAX_NODES: "0"
           MAX_OUTPUT_NODES: "0"
           TCP_PREFILTER_ENABLED: "1"
