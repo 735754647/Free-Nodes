@@ -126,15 +126,6 @@ def run(args: argparse.Namespace) -> int:
                 workers=_int_env("TCP_PREFILTER_WORKERS", 64),
                 attempts=_int_env("TCP_CONNECT_ATTEMPTS", 2),
             )
-        aliyun_fc_url = os.environ.get("ALIYUN_FC_URL", "").strip()
-        if aliyun_fc_url and nodes:
-            nodes = aliyun_tcp_prefilter(
-                nodes,
-                url=aliyun_fc_url,
-                timeout_seconds=_float_env("ALIYUN_FC_TIMEOUT_SECONDS", 10.0),
-                interval_seconds=_float_env("ALIYUN_FC_INTERVAL_SECONDS", 1.5),
-                max_consecutive_errors=_int_env("ALIYUN_FC_MAX_CONSECUTIVE_ERRORS", 3),
-            )
         if not nodes:
             print("No nodes passed the TCP prefilter; publishing an empty subscription.")
         else:
@@ -174,6 +165,15 @@ def run(args: argparse.Namespace) -> int:
             min_speed,
             require_speed=speed_test_enabled,
         )
+        aliyun_fc_url = os.environ.get("ALIYUN_FC_URL", "").strip()
+        if aliyun_fc_url and nodes:
+            nodes = aliyun_tcp_prefilter(
+                nodes,
+                url=aliyun_fc_url,
+                timeout_seconds=_float_env("ALIYUN_FC_TIMEOUT_SECONDS", 10.0),
+                interval_seconds=_float_env("ALIYUN_FC_INTERVAL_SECONDS", 1.5),
+                max_consecutive_errors=_int_env("ALIYUN_FC_MAX_CONSECUTIVE_ERRORS", 3),
+            )
     nodes.sort(
         key=lambda node: (
             node.speed_mbps is None,
