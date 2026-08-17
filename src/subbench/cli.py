@@ -10,7 +10,7 @@ from .countries import country_name_zh
 from .models import Node
 from .output import prepare_names, write_outputs
 from .parsers import parse_document
-from .prefilter import aliyun_tcp_prefilter, tcp_prefilter
+from .prefilter import aliyun_tcp_prefilter, normalize_aliyun_url, tcp_prefilter
 from .sources import fetch_sources, load_sources
 
 
@@ -165,7 +165,13 @@ def run(args: argparse.Namespace) -> int:
             min_speed,
             require_speed=speed_test_enabled,
         )
-        aliyun_fc_url = os.environ.get("ALIYUN_FC_URL", "").strip()
+        aliyun_fc_raw = os.environ.get("ALIYUN_FC_URL", "")
+        aliyun_fc_url = normalize_aliyun_url(aliyun_fc_raw)
+        if aliyun_fc_raw.strip() and not aliyun_fc_url:
+            print(
+                "Aliyun FC TCP prefilter skipped: ALIYUN_FC_URL must contain only the exact http:// or https:// URL.",
+                flush=True,
+            )
         if aliyun_fc_url and nodes:
             nodes = aliyun_tcp_prefilter(
                 nodes,

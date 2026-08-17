@@ -3,7 +3,7 @@ import unittest
 import requests
 
 from subbench.models import Node
-from subbench.prefilter import aliyun_tcp_prefilter, tcp_prefilter
+from subbench.prefilter import aliyun_tcp_prefilter, normalize_aliyun_url, tcp_prefilter
 
 
 def make_node(name: str, server: str, port: int) -> Node:
@@ -28,6 +28,13 @@ class DummyResponse:
 
 
 class TcpPrefilterTests(unittest.TestCase):
+    def test_normalize_aliyun_url_accepts_wrapped_http_url(self):
+        self.assertEqual(
+            normalize_aliyun_url('  "http://fc.example/"  '),
+            "http://fc.example/",
+        )
+        self.assertEqual(normalize_aliyun_url("http//fc.example/"), "")
+
     def test_shared_endpoint_is_checked_once_and_keeps_all_nodes(self):
         nodes = [
             make_node("one", "reachable.example", 443),

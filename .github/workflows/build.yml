@@ -51,9 +51,17 @@ jobs:
           import time
           import requests
 
-          url = os.environ.get("ALIYUN_FC_URL", "").strip().strip("\"'")
+          from urllib.parse import urlsplit
+
+          url = os.environ.get("ALIYUN_FC_URL", "").strip().strip("\"'").strip()
+          if url.startswith("<") and url.endswith(">"):
+              url = url[1:-1].strip()
           if not url:
               print("Aliyun FC probe skipped: ALIYUN_FC_URL is empty")
+              raise SystemExit(0)
+          parsed = urlsplit(url)
+          if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+              print("Aliyun FC probe skipped: ALIYUN_FC_URL is not an exact http:// or https:// URL")
               raise SystemExit(0)
 
           session = requests.Session()

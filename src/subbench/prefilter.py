@@ -5,6 +5,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 import requests
 
@@ -14,6 +15,17 @@ from .models import Node
 Endpoint = tuple[str, int]
 Connector = Callable[[Endpoint, float], object]
 Requester = Callable[..., Any]
+
+
+def normalize_aliyun_url(value: str) -> str:
+    """Return a usable FC HTTP URL, removing common Secret copy/paste wrappers."""
+    url = str(value or "").strip().strip("\"'").strip()
+    if url.startswith("<") and url.endswith(">"):
+        url = url[1:-1].strip()
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    return url
 
 
 def _endpoint(node: Node) -> Endpoint | None:
@@ -100,7 +112,15 @@ def aliyun_tcp_prefilter(
             endpoint_nodes[endpoint].append(node)
 
     endpoints = list(endpoint_nodes)
-    if not url.strip() or not endpoints:
+    url = normalize_aliyun_url(url)
+    if not url:
+        if endpoints:
+            print(
+                "Aliyun FC TCP prefilter skipped: ALIYUN_FC_URL must be an exact http:// or https:// URL.",
+                flush=True,
+            )
+        return nodes
+    if not endpoints:
         return nodes
 
     session: requests.Session | None = None
