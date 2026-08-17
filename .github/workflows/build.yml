@@ -41,27 +41,42 @@ jobs:
       - name: Check Python version
         shell: powershell -ExecutionPolicy Bypass -File {0}
         run: |
-          $pythonExe = $null
+          $candidates = @()
           $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
           if ($launcher) {
             $candidate = (& $launcher.Source -3 -c "import sys; print(sys.executable)" 2>$null | Select-Object -Last 1).Trim()
             if ($candidate -and (Test-Path -LiteralPath $candidate)) {
-              $pythonExe = $candidate
+              $candidates += $candidate
             }
           }
-          if (-not $pythonExe) {
-            $python = Get-Command python.exe -ErrorAction SilentlyContinue
-            if ($python) {
-              $pythonExe = $python.Source
+          $python = Get-Command python.exe -ErrorAction SilentlyContinue
+          if ($python) {
+            $candidates += $python.Source
+          }
+          $searchPaths = @(
+            'C:\Users\*\AppData\Local\Programs\Python\Python*\python.exe',
+            "$env:ProgramFiles\Python*\python.exe",
+            "${env:ProgramFiles(x86)}\Python*\python.exe"
+          )
+          foreach ($searchPath in $searchPaths) {
+            $candidates += Get-ChildItem -Path $searchPath -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+          }
+          $valid = foreach ($candidate in ($candidates | Sort-Object -Unique)) {
+            try {
+              $versionText = (& $candidate -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null).Trim()
+              if ($LASTEXITCODE -eq 0 -and [version]$versionText -ge [version]'3.11') {
+                [pscustomobject]@{ Path = $candidate; Version = [version]$versionText }
+              }
+            } catch {
+              Write-Host "Ignoring unusable Python candidate: $candidate"
             }
           }
-          if (-not $pythonExe) {
-            throw "No Python 3 installation was found on the self-hosted runner."
+          $selected = $valid | Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $selected) {
+            throw "No usable Python 3.11 or newer installation was found on the self-hosted runner."
           }
-          $version = (& $pythonExe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
-          if ([version]$version -lt [version]'3.11') {
-            throw "Python $version is too old; this project requires Python 3.11 or newer."
-          }
+          $pythonExe = $selected.Path
+          $version = $selected.Version
           "PYTHON_EXE=$pythonExe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Using Python $version at $pythonExe"
 
