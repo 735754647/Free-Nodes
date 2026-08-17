@@ -104,7 +104,7 @@ def aliyun_tcp_prefilter(
     timeout_seconds: float = 10.0,
     interval_seconds: float = 0.2,
     max_consecutive_errors: int = 3,
-    workers: int = 3,
+    workers: int = 10,
     requester: Requester | None = None,
     sleeper: Callable[[float], None] = time.sleep,
     randomizer: Randomizer = random.uniform,
