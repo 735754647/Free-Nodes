@@ -71,6 +71,8 @@ Value: 每行一个订阅地址
 
 `SOURCE_URLS` 会和 `config/sources.txt` 中的公开来源一起处理。请注意：即使来源保存在 Secret 中，GitHub Pages 生成的节点订阅仍然是公开的。
 
+V2Nodes 使用公开主页作为来源。程序每次运行都会从 `https://www.v2nodes.com/` 自动提取当前官方订阅地址，因此网站轮换公开 Key 后不需要手动修改仓库配置。
+
 ### 测速设置
 
 可在 [`.github/workflows/build.yml`](.github/workflows/build.yml) 中调整：
@@ -194,6 +196,8 @@ https://example.org/nodes.txt
 ```
 
 Store tokenized or private source URLs in the `SOURCE_URLS` GitHub Actions secret as newline-separated values. Do not commit subscription tokens to a public repository. Remember that the generated GitHub Pages subscriptions remain public even when the input URL is stored as a secret.
+
+V2Nodes is configured using its public landing page. The builder reads that page on every run and follows the current official subscription URL automatically, so its rotating public key does not need to be copied into the repository.
 
 ### Benchmark Configuration
 
