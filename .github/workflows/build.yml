@@ -96,8 +96,17 @@ jobs:
 
       - name: Install Mihomo
         run: |
-          & $env:PYTHON_EXE scripts/install_mihomo.py --output .bin/mihomo.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $runnerRoot = $env:GITHUB_WORKSPACE
+          1..4 | ForEach-Object { $runnerRoot = Split-Path -Parent $runnerRoot }
+          $cachedMihomo = Join-Path $runnerRoot '.bin\mihomo.exe'
+          if (Test-Path -LiteralPath $cachedMihomo) {
+            New-Item -ItemType Directory -Path '.bin' -Force | Out-Null
+            Copy-Item -LiteralPath $cachedMihomo -Destination '.bin\mihomo.exe' -Force
+            Write-Host "Using cached local Mihomo: $cachedMihomo"
+          } else {
+            & $env:PYTHON_EXE scripts/install_mihomo.py --output .bin/mihomo.exe
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Build subscriptions
         env:
