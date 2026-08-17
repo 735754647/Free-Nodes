@@ -26,7 +26,10 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -37,66 +40,21 @@ jobs:
           python-version: "3.12"
 
       - name: Install project
-        run: python -m pip install --upgrade pip && python -m pip install .
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install .
 
       - name: Install Mihomo
-        run: python scripts/install_mihomo.py --output .bin/mihomo
-
-      - name: Probe Aliyun FC
-        continue-on-error: true
-        env:
-          ALIYUN_FC_URL: ${{ secrets.ALIYUN_FC_URL }}
-          ALIYUN_FC_ENABLED: "0"
-        run: |
-          python - <<'PY'
-          import os
-          import time
-          import requests
-
-          from urllib.parse import urlsplit
-
-          enabled = os.environ.get("ALIYUN_FC_ENABLED", "1").strip().lower()
-          if enabled not in {"1", "true", "yes", "on"}:
-              print("Aliyun FC probe skipped: ALIYUN_FC_ENABLED is disabled")
-              raise SystemExit(0)
-
-          url = os.environ.get("ALIYUN_FC_URL", "").strip().strip("\"'").strip()
-          if url.startswith("<") and url.endswith(">"):
-              url = url[1:-1].strip()
-          if not url:
-              print("Aliyun FC probe skipped: ALIYUN_FC_URL is empty")
-              raise SystemExit(0)
-          parsed = urlsplit(url)
-          if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-              print("Aliyun FC probe skipped: ALIYUN_FC_URL is not an exact http:// or https:// URL")
-              raise SystemExit(0)
-
-          session = requests.Session()
-          session.trust_env = False
-          started = time.monotonic()
-          try:
-              response = session.get(
-                  url,
-                  params={"ip": "www.baidu.com", "port": 443},
-                  timeout=15,
-              )
-              elapsed = time.monotonic() - started
-              print(
-                  f"Aliyun FC probe status={response.status_code} "
-                  f"elapsed={elapsed:.2f}s body={response.text[:200]!r}"
-              )
-          except requests.RequestException as exc:
-              elapsed = time.monotonic() - started
-              print(f"Aliyun FC probe error={type(exc).__name__} elapsed={elapsed:.2f}s")
-          finally:
-              session.close()
-          PY
+        shell: pwsh
+        run: python scripts/install_mihomo.py --output .bin/mihomo.exe
 
       - name: Build subscriptions
         env:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
-          ALIYUN_FC_URL: ${{ secrets.ALIYUN_FC_URL }}
-          # Set to "1" to enable Alibaba Cloud TCP rechecks.
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
           ALIYUN_FC_ENABLED: "0"
           MAX_NODES: "0"
           MAX_OUTPUT_NODES: "0"
@@ -121,7 +79,8 @@ jobs:
           SPEED_TEST_BYTES: "1000000"
           SPEED_TIMEOUT_SECONDS: "8"
           BENCHMARK_WORKERS: "24"
-        run: subbench run --mihomo .bin/mihomo --output public --workdir .work
+        shell: pwsh
+        run: subbench run --mihomo .bin/mihomo.exe --output public --workdir .work
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

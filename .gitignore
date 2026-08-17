@@ -8,3 +8,4 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+actions-runner/
