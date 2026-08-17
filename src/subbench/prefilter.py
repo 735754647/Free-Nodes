@@ -134,6 +134,12 @@ def aliyun_tcp_prefilter(
     consecutive_errors = 0
     error_samples: list[str] = []
     error_limit = max(1, max_consecutive_errors)
+    progress_interval = 10
+    print(
+        f"Aliyun FC TCP prefilter starting: {len(endpoints)} unique endpoints, "
+        f"{interval_seconds:.1f}s interval.",
+        flush=True,
+    )
     try:
         for index, endpoint in enumerate(endpoints, start=1):
             server, port = endpoint
@@ -163,7 +169,7 @@ def aliyun_tcp_prefilter(
             finally:
                 sleeper(max(0.0, interval_seconds))
 
-            if index % 50 == 0 or index == len(endpoints):
+            if index % progress_interval == 0 or index == len(endpoints):
                 reachable = sum(results.values())
                 print(
                     f"Aliyun FC TCP prefilter {index}/{len(endpoints)}: "
