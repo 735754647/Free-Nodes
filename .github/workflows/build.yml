@@ -114,8 +114,25 @@ jobs:
             Copy-Item -LiteralPath $cachePath -Destination '.bin\mihomo.exe' -Force
             Write-Host "Using cached Mihomo from $cachePath"
           } else {
-            & $env:PYTHON_EXE scripts/install_mihomo.py --output $cachePath
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $existingMihomo = Get-Command mihomo.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
+            $cursor = (Get-Location).Path
+            while (-not $existingMihomo -and $cursor) {
+              $candidate = Join-Path $cursor '.bin\mihomo.exe'
+              if ((Test-Path -LiteralPath $candidate) -and ((Resolve-Path -LiteralPath $candidate).Path -ne $cachePath)) {
+                $existingMihomo = (Resolve-Path -LiteralPath $candidate).Path
+                break
+              }
+              $parent = Split-Path -Parent $cursor
+              if (-not $parent -or $parent -eq $cursor) { break }
+              $cursor = $parent
+            }
+            if ($existingMihomo) {
+              Copy-Item -LiteralPath $existingMihomo -Destination $cachePath -Force
+              Write-Host "Found existing Mihomo: $existingMihomo"
+            } else {
+              & $env:PYTHON_EXE scripts/install_mihomo.py --output $cachePath
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
             Copy-Item -LiteralPath $cachePath -Destination '.bin\mihomo.exe' -Force
           }
 
