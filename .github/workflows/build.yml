@@ -96,7 +96,8 @@ jobs:
           TCP_CONNECT_ATTEMPTS: "2"
           TCP_PREFILTER_WORKERS: "64"
           ALIYUN_FC_TIMEOUT_SECONDS: "10"
-          # Requests remain strictly serial; this only shortens idle time between checks.
+          # Keep Alibaba FC concurrency conservative while avoiding serial timeout bottlenecks.
+          ALIYUN_FC_WORKERS: "3"
           ALIYUN_FC_INTERVAL_SECONDS: "0.2"
           ALIYUN_FC_JITTER_SECONDS: "0.1"
           ALIYUN_FC_MAX_CONSECUTIVE_ERRORS: "3"

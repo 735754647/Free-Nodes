@@ -180,6 +180,7 @@ def run(args: argparse.Namespace) -> int:
                 interval_seconds=_float_env("ALIYUN_FC_INTERVAL_SECONDS", 0.2),
                 interval_jitter_seconds=_float_env("ALIYUN_FC_JITTER_SECONDS", 0.1),
                 max_consecutive_errors=_int_env("ALIYUN_FC_MAX_CONSECUTIVE_ERRORS", 3),
+                workers=_int_env("ALIYUN_FC_WORKERS", 3),
             )
     nodes.sort(
         key=lambda node: (

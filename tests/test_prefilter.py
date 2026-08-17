@@ -1,3 +1,5 @@
+import threading
+import time
 import unittest
 
 import requests
@@ -28,6 +30,33 @@ class DummyResponse:
 
 
 class TcpPrefilterTests(unittest.TestCase):
+    def test_aliyun_prefilter_limits_concurrent_requests(self):
+        nodes = [make_node(f"node-{index}", f"{index}.example", 443) for index in range(6)]
+        lock = threading.Lock()
+        active = 0
+        max_active = 0
+
+        def requester(url: str, **kwargs):
+            nonlocal active, max_active
+            with lock:
+                active += 1
+                max_active = max(max_active, active)
+            time.sleep(0.02)
+            with lock:
+                active -= 1
+            return DummyResponse("ok")
+
+        kept = aliyun_tcp_prefilter(
+            nodes,
+            url="http://fc.example/",
+            workers=3,
+            requester=requester,
+            sleeper=lambda seconds: None,
+        )
+
+        self.assertEqual(kept, nodes)
+        self.assertEqual(max_active, 3)
+
     def test_normalize_aliyun_url_accepts_wrapped_http_url(self):
         self.assertEqual(
             normalize_aliyun_url('  "http://fc.example/"  '),
@@ -91,6 +120,7 @@ class TcpPrefilterTests(unittest.TestCase):
             requester=requester,
             sleeper=waits.append,
             randomizer=lambda low, high: 0.2,
+            workers=1,
         )
         self.assertEqual([node.name for node in kept], ["one", "two"])
         self.assertEqual(len(requests_made), 2)
@@ -117,6 +147,7 @@ class TcpPrefilterTests(unittest.TestCase):
             max_consecutive_errors=3,
             requester=requester,
             sleeper=lambda seconds: None,
+            workers=1,
         )
         self.assertEqual(kept, nodes)
         self.assertEqual(calls, 3)

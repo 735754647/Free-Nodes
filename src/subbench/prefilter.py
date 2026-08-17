@@ -4,7 +4,7 @@ import socket
 import time
 import random
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, as_completed, wait
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
@@ -104,6 +104,7 @@ def aliyun_tcp_prefilter(
     timeout_seconds: float = 10.0,
     interval_seconds: float = 0.2,
     max_consecutive_errors: int = 3,
+    workers: int = 3,
     requester: Requester | None = None,
     sleeper: Callable[[float], None] = time.sleep,
     randomizer: Randomizer = random.uniform,
@@ -127,12 +128,6 @@ def aliyun_tcp_prefilter(
     if not endpoints:
         return nodes
 
-    session: requests.Session | None = None
-    if requester is None:
-        session = requests.Session()
-        session.trust_env = False
-        requester = session.get
-
     results: dict[Endpoint, bool] = {}
     errors = 0
     consecutive_errors = 0
@@ -143,48 +138,85 @@ def aliyun_tcp_prefilter(
     interval_high = max(interval_low, interval_seconds + abs(interval_jitter_seconds))
     print(
         f"Aliyun FC TCP prefilter starting: {len(endpoints)} unique endpoints, "
-        f"random {interval_low:.1f}-{interval_high:.1f}s interval.",
+        f"random {interval_low:.1f}-{interval_high:.1f}s interval, "
+        f"up to {max(1, workers)} concurrent requests.",
         flush=True,
     )
+    def check(endpoint: Endpoint) -> tuple[Endpoint, bool | None, str | None]:
+        server, port = endpoint
+        local_session: requests.Session | None = None
+        try:
+            if requester is None:
+                local_session = requests.Session()
+                local_session.trust_env = False
+                request = local_session.get
+            else:
+                request = requester
+            response = request(
+                url,
+                params={"ip": server, "port": port},
+                timeout=max(1.0, timeout_seconds),
+            )
+            if response.status_code != 200:
+                raise requests.RequestException(f"HTTP {response.status_code}")
+            return endpoint, "ok" in response.text.lower(), None
+        except (requests.RequestException, OSError, TimeoutError) as exc:
+            detail = str(exc) if str(exc).startswith("HTTP ") else type(exc).__name__
+            return endpoint, None, detail
+        finally:
+            if local_session is not None:
+                local_session.close()
+            sleeper(randomizer(interval_low, interval_high))
+
+    worker_count = max(1, workers)
+    executor = ThreadPoolExecutor(max_workers=worker_count)
+    pending = {
+        executor.submit(check, endpoint)
+        for endpoint in endpoints[:worker_count]
+    }
+    next_index = worker_count
+    completed = 0
+    unavailable = False
     try:
-        for index, endpoint in enumerate(endpoints, start=1):
-            server, port = endpoint
-            try:
-                response = requester(
-                    url,
-                    params={"ip": server, "port": port},
-                    timeout=max(1.0, timeout_seconds),
-                )
-                if response.status_code != 200:
-                    raise requests.RequestException(f"HTTP {response.status_code}")
-                results[endpoint] = "ok" in response.text.lower()
-                consecutive_errors = 0
-            except (requests.RequestException, OSError, TimeoutError) as exc:
-                errors += 1
-                consecutive_errors += 1
-                detail = str(exc) if str(exc).startswith("HTTP ") else type(exc).__name__
-                if len(error_samples) < 3:
-                    error_samples.append(f"{server}:{port} ({detail})")
-                if consecutive_errors >= error_limit:
+        while pending:
+            done, pending = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                endpoint, reachable, detail = future.result()
+                completed += 1
+                server, port = endpoint
+                if detail is None:
+                    results[endpoint] = bool(reachable)
+                    consecutive_errors = 0
+                else:
+                    errors += 1
+                    consecutive_errors += 1
+                    if len(error_samples) < 3:
+                        error_samples.append(f"{server}:{port} ({detail})")
+                    if consecutive_errors >= error_limit:
+                        unavailable = True
+
+                if not unavailable and next_index < len(endpoints):
+                    pending.add(executor.submit(check, endpoints[next_index]))
+                    next_index += 1
+
+                if completed % progress_interval == 0 or completed == len(endpoints):
+                    reachable_count = sum(results.values())
                     print(
-                        "Aliyun FC TCP prefilter is unavailable; keeping untested endpoints. "
-                        f"Error samples: {', '.join(error_samples)}",
+                        f"Aliyun FC TCP prefilter {completed}/{len(endpoints)}: "
+                        f"{reachable_count} reachable, {errors} request errors",
                         flush=True,
                     )
-                    break
-            finally:
-                sleeper(randomizer(interval_low, interval_high))
-
-            if index % progress_interval == 0 or index == len(endpoints):
-                reachable = sum(results.values())
+            if unavailable:
+                for future in pending:
+                    future.cancel()
                 print(
-                    f"Aliyun FC TCP prefilter {index}/{len(endpoints)}: "
-                    f"{reachable} reachable, {errors} request errors",
+                    "Aliyun FC TCP prefilter is unavailable; keeping untested endpoints. "
+                    f"Error samples: {', '.join(error_samples)}",
                     flush=True,
                 )
+                break
     finally:
-        if session is not None:
-            session.close()
+        executor.shutdown(wait=True, cancel_futures=True)
 
     kept: list[Node] = []
     for node in nodes:
