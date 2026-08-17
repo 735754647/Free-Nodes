@@ -46,16 +46,22 @@ jobs:
           if [[ -z "${RUNNER_STATUS_TOKEN:-}" ]]; then
             status_reason="RUNNER_STATUS_TOKEN is missing; using cloud runner"
           else
-            runner_response="$(curl --silent --show-error --fail-with-body \
-              --max-time 10 \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${RUNNER_STATUS_TOKEN}" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${REPOSITORY}/actions/runners?per_page=100" 2>&1)"
-            curl_status=$?
+            if runner_result="$(curl --silent --fail-with-body \
+                --max-time 10 \
+                --write-out $'\n%{http_code}' \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${RUNNER_STATUS_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/${REPOSITORY}/actions/runners?per_page=100")"; then
+              curl_status=0
+            else
+              curl_status=$?
+            fi
+            http_status="${runner_result##*$'\n'}"
+            runner_response="${runner_result%$'\n'*}"
 
             if [[ ${curl_status} -ne 0 ]]; then
-              status_reason="Runner status API request failed (curl ${curl_status}); using cloud runner"
+              status_reason="Runner status API request failed (HTTP ${http_status}, curl ${curl_status}); using cloud runner"
             elif ! jq -e '.runners | type == "array"' >/dev/null <<<"${runner_response}"; then
               status_reason="Runner status API returned invalid JSON; using cloud runner"
             else
