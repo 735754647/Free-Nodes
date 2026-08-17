@@ -21,7 +21,8 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # Let a running full-node check finish; later push/schedule runs wait in the queue.
+  cancel-in-progress: false
 
 jobs:
   build:
