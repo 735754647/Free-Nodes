@@ -32,7 +32,8 @@
 - 使用 Mihomo 测试代理连通性、延迟和限定大小的下载速度
 - 自动过滤不可用节点，并按速度和延迟排序
 - 通过代理出口 IP 识别国家，并将节点重命名为 `🇺🇸 美国 | VLESS | 001` 格式
-- 每天北京时间 08:00 和 20:00 自动更新，也支持在 Actions 页面手动运行
+- 每天北京时间 08:30 和 17:00 自动更新，也支持在 Actions 页面手动运行
+- Windows x64 随项目提供便携 Python 3.12、Python 依赖和 Mihomo，首次运行无需另外下载运行环境
 - 生成 V2Ray、Clash/Mihomo、原始链接和 JSON 报告
 
 ### 客户端使用
@@ -100,20 +101,11 @@ Value: 每行一个订阅地址
 | `SPEED_TIMEOUT_SECONDS` | `8` | 单个节点下载测速读取超时 |
 | `BENCHMARK_WORKERS` | `24` | 并发延迟测试数量 |
 
-测速运行在 GitHub 托管的服务器上，结果反映的是 GitHub Runner 所在网络到节点的质量，并不等于你本地网络的实际体验。
+构建优先使用 Windows 自托管 Runner；本地 Runner 离线、失败或超时后才使用 GitHub 云端 Runner。测速结果反映实际执行 Runner 所在网络到节点的质量。
 
 ### 本地运行
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e .
-python -m unittest discover -s tests -v
-python scripts/install_mihomo.py --output .bin/mihomo.exe
-python -m subbench run --mihomo .bin/mihomo.exe
-```
-
-Windows 用户也可以直接运行本地线路测速脚本：
+Windows x64 已随项目提供便携 Python、依赖和 Mihomo。下载或克隆仓库后可以直接运行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/test_local.ps1
@@ -125,7 +117,7 @@ powershell -ExecutionPolicy Bypass -File scripts/test_local.ps1
 powershell -ExecutionPolicy Bypass -File scripts/test_local.ps1 -EnableSpeedTest
 ```
 
-本地结果写入 `public-local/`，其延迟和速度更接近当前电脑运行 v2rayN 时的实际线路。GitHub Pages 上的订阅仍由 GitHub 托管服务器测速。
+本地结果写入 `public-local/`，其延迟和速度更接近当前电脑运行 v2rayN 时的实际线路。便携运行时不需要联网安装 Python 包，但订阅抓取和节点检测仍然必须联网。
 
 生成文件位于 `public/`。只想检查解析和订阅生成时，可以使用：
 
@@ -175,7 +167,8 @@ Before the first deployment, open `Settings → Pages` and select **GitHub Actio
 - Uses Mihomo for real proxy connectivity, latency, and bounded download tests
 - Filters failed nodes and sorts successful results by speed and latency
 - Detects the proxy exit country and renames nodes like `🇺🇸 美国 | VLESS | 001`
-- Runs daily at 08:00 and 20:00 Asia/Shanghai and supports manual workflow dispatch
+- Runs daily at 08:30 and 17:00 Asia/Shanghai and supports manual workflow dispatch
+- Bundles portable Python 3.12, Python dependencies, and Mihomo for Windows x64 startup without initial runtime downloads
 - Publishes V2Ray, Clash/Mihomo, raw-link, and JSON report outputs
 
 ### Usage
@@ -230,26 +223,17 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `SPEED_TIMEOUT_SECONDS` | `8` | Per-node download read timeout |
 | `BENCHMARK_WORKERS` | `24` | Concurrent latency checks |
 
-GitHub-hosted runners have different routes and locations from your local network, so benchmark results are useful for filtering but cannot predict every user's connection quality.
+The workflow prefers the Windows self-hosted runner and falls back to a GitHub-hosted runner after local failure, unavailability, or timeout. Results reflect the network of whichever runner performed the checks.
 
 ### Local Development
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e .
-python -m unittest discover -s tests -v
-python scripts/install_mihomo.py --output .bin/mihomo.exe
-python -m subbench run --mihomo .bin/mihomo.exe
-```
-
-Windows users can benchmark from their current local network with:
+Windows x64 includes portable Python, its dependencies, and Mihomo. After cloning or downloading the repository, run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/test_local.ps1
 ```
 
-Local results are written to `public-local/`. They better represent the route used by v2rayN on that computer, while the GitHub Pages subscriptions are still benchmarked from a GitHub-hosted runner.
+Local results are written to `public-local/`. The bundled runtime avoids initial Python-package and Mihomo downloads, while subscription fetching and node tests still require Internet access.
 
 Generated subscriptions are written to `public/`. Use `python -m subbench run --skip-benchmark` when you only need to verify parsing and output generation.
 

@@ -59,7 +59,7 @@ jobs:
           python -m pip install .
 
       - name: Cache Mihomo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .cache/mihomo
           key: mihomo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install_mihomo.py') }}
@@ -109,10 +109,12 @@ jobs:
           BENCHMARK_WORKERS: "24"
         run: subbench run --mihomo .bin/mihomo --output public --workdir .work
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+      - name: Upload subscription output
+        uses: actions/upload-artifact@v7
         with:
+          name: subscription-output
           path: public
+          if-no-files-found: error
 
   deploy:
     needs: build
@@ -121,6 +123,17 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Download subscription output
+        uses: actions/download-artifact@v8
+        with:
+          name: subscription-output
+          path: public
+
+      - name: Package Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

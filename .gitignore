@@ -4,6 +4,8 @@
 /.work-local/
 /public-local/
 /.venv/
+/.runtime/
+/build/
 __pycache__/
 *.py[cod]
 *.egg-info/

@@ -42,6 +42,21 @@ jobs:
         shell: powershell -ExecutionPolicy Bypass -File {0}
         run: |
           $candidates = @()
+          $bundledPython = $null
+          $runtimeArchive = Get-ChildItem -Path (Get-Location) -Filter 'python-*-runtime.zip' -File -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          if ($runtimeArchive) {
+            $runtimeDir = Join-Path (Get-Location) '.runtime\python'
+            New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($runtimeArchive.FullName, $runtimeDir)
+            $bundledPython = Get-ChildItem -LiteralPath $runtimeDir -Filter 'python.exe' -File -Recurse |
+              Select-Object -ExpandProperty FullName -First 1
+            if ($bundledPython) {
+              $candidates += $bundledPython
+            }
+          }
           $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
           if ($launcher) {
             try {
@@ -83,57 +98,51 @@ jobs:
               Write-Host "Ignoring unusable Python candidate: $candidate"
             }
           }
-          $selected = $valid | Sort-Object Version -Descending | Select-Object -First 1
+          $selected = $null
+          if ($bundledPython) {
+            $selected = $valid | Where-Object { $_.Path -eq $bundledPython } | Select-Object -First 1
+          }
+          if (-not $selected) {
+            $selected = $valid | Sort-Object Version -Descending | Select-Object -First 1
+          }
           if (-not $selected) {
             throw "No usable Python 3.11 or newer installation was found on the self-hosted runner."
           }
           $pythonExe = $selected.Path
           $version = $selected.Version
           "PYTHON_EXE=$pythonExe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PYTHON_BUNDLED=$(if ($bundledPython -and $pythonExe -eq $bundledPython) { '1' } else { '0' })" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Using Python $version at $pythonExe"
 
       - name: Install project
         run: |
-          & $env:PYTHON_EXE -m pip install --upgrade pip
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $env:PYTHON_EXE -m pip install .
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Cache Mihomo
-        uses: actions/cache@v4
-        with:
-          path: .cache/mihomo
-          key: mihomo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install_mihomo.py') }}
+          if ($env:PYTHON_BUNDLED -eq '1') {
+            & $env:PYTHON_EXE -c "import yaml, requests, subbench; print('Using bundled offline Python dependencies')"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else {
+            & $env:PYTHON_EXE -m pip install --upgrade pip
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $env:PYTHON_EXE -m pip install .
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Install Mihomo
         run: |
-          $cachePath = Join-Path (Get-Location) '.cache\mihomo\mihomo.exe'
-          New-Item -ItemType Directory -Path (Split-Path -Parent $cachePath) -Force | Out-Null
+          $destination = Join-Path (Get-Location) '.bin\mihomo.exe'
           New-Item -ItemType Directory -Path '.bin' -Force | Out-Null
-          if (Test-Path -LiteralPath $cachePath) {
-            Copy-Item -LiteralPath $cachePath -Destination '.bin\mihomo.exe' -Force
-            Write-Host "Using cached Mihomo from $cachePath"
+          $existingMihomo = Get-Command mihomo.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
+          if (-not $existingMihomo) {
+            $existingMihomo = Get-ChildItem -Path (Get-Location) -Filter 'mihomo.exe' -File -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -ne $destination } |
+              Select-Object -ExpandProperty FullName -First 1
+          }
+          if ($existingMihomo) {
+            Copy-Item -LiteralPath $existingMihomo -Destination $destination -Force
+            Write-Host "Using bundled Mihomo: $existingMihomo"
           } else {
-            $existingMihomo = Get-Command mihomo.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
-            $cursor = (Get-Location).Path
-            while (-not $existingMihomo -and $cursor) {
-              $candidate = Join-Path $cursor '.bin\mihomo.exe'
-              if ((Test-Path -LiteralPath $candidate) -and ((Resolve-Path -LiteralPath $candidate).Path -ne $cachePath)) {
-                $existingMihomo = (Resolve-Path -LiteralPath $candidate).Path
-                break
-              }
-              $parent = Split-Path -Parent $cursor
-              if (-not $parent -or $parent -eq $cursor) { break }
-              $cursor = $parent
-            }
-            if ($existingMihomo) {
-              Copy-Item -LiteralPath $existingMihomo -Destination $cachePath -Force
-              Write-Host "Found existing Mihomo: $existingMihomo"
-            } else {
-              & $env:PYTHON_EXE scripts/install_mihomo.py --output $cachePath
-              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            }
-            Copy-Item -LiteralPath $cachePath -Destination '.bin\mihomo.exe' -Force
+            & $env:PYTHON_EXE scripts/install_mihomo.py --output $destination
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
       - name: Build subscriptions
@@ -169,10 +178,12 @@ jobs:
           & $env:PYTHON_EXE -m subbench run --mihomo .bin/mihomo.exe --output public --workdir .work
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+      - name: Upload subscription output
+        uses: actions/upload-artifact@v7
         with:
+          name: subscription-output
           path: public
+          if-no-files-found: error
 
   deploy:
     needs: build
@@ -181,6 +192,17 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Download subscription output
+        uses: actions/download-artifact@v8
+        with:
+          name: subscription-output
+          path: public
+
+      - name: Package Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
