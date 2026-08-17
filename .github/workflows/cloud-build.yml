@@ -1,19 +1,23 @@
-name: Build subscriptions (local)
+name: Build subscriptions (cloud fallback)
 
 on:
   workflow_dispatch:
-  schedule:
-    # 08:30 and 17:00 Asia/Shanghai (UTC+8)
-    - cron: "30 0 * * *"
-    - cron: "0 9 * * *"
-  push:
-    branches: [main]
-    paths:
-      - "config/**"
-      - "src/**"
-      - "scripts/**"
-      - ".github/workflows/build.yml"
-      - "pyproject.toml"
+    inputs:
+      checkout_ref:
+        description: "Commit SHA or ref to build"
+        required: false
+        type: string
+        default: main
+      source_run_id:
+        description: "Local run that caused the fallback"
+        required: false
+        type: string
+        default: manual
+      reason:
+        description: "Why the cloud fallback was started"
+        required: false
+        type: string
+        default: manual
 
 permissions:
   contents: read
@@ -22,47 +26,44 @@ permissions:
 
 concurrency:
   group: pages
-  # New runs replace older checks so the latest configuration starts immediately.
   cancel-in-progress: true
 
 jobs:
   build:
-    runs-on:
-      - self-hosted
-      - Windows
-      - X64
-    defaults:
-      run:
-        shell: powershell -ExecutionPolicy Bypass -File {0}
+    runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.checkout_ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          # Resolve an available Python 3.x; the project requires Python >= 3.11.
-          python-version: "3.x"
+          python-version: "3.12"
 
       - name: Check Python version
-        shell: powershell -ExecutionPolicy Bypass -File {0}
+        shell: bash
         run: |
-          $version = python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-          if ([version]$version -lt [version]'3.11') {
-            throw "Python $version is too old; this project requires Python 3.11 or newer."
-          }
-          Write-Host "Using Python $version"
+          python - <<'PY'
+          import sys
+          if sys.version_info < (3, 11):
+              raise SystemExit("Python 3.11 or newer is required")
+          print(f"Using Python {sys.version_info.major}.{sys.version_info.minor}")
+          PY
 
       - name: Install project
+        shell: bash
         run: |
           python -m pip install --upgrade pip
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install .
 
       - name: Install Mihomo
-        run: python scripts/install_mihomo.py --output .bin/mihomo.exe
+        shell: bash
+        run: python scripts/install_mihomo.py --output .bin/mihomo
 
       - name: Build subscriptions
+        shell: bash
         env:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
           PYTHONUTF8: "1"
@@ -75,7 +76,6 @@ jobs:
           TCP_CONNECT_ATTEMPTS: "2"
           TCP_PREFILTER_WORKERS: "64"
           ALIYUN_FC_TIMEOUT_SECONDS: "10"
-          # Limit Alibaba FC checks to ten concurrent requests.
           ALIYUN_FC_WORKERS: "10"
           ALIYUN_FC_INTERVAL_SECONDS: "0.2"
           ALIYUN_FC_JITTER_SECONDS: "0.1"
@@ -85,13 +85,12 @@ jobs:
           MIN_SPEED_MBPS: "0.1"
           GEOIP_TEST_URLS: "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/"
           GEOIP_WORKERS: "24"
-          # Set to "1" to enable download speed testing and MIN_SPEED_MBPS filtering.
           SPEED_TEST_ENABLED: "0"
           SPEED_TEST_LIMIT: "0"
           SPEED_TEST_BYTES: "1000000"
           SPEED_TIMEOUT_SECONDS: "8"
           BENCHMARK_WORKERS: "24"
-        run: subbench run --mihomo .bin/mihomo.exe --output public --workdir .work
+        run: subbench run --mihomo .bin/mihomo --output public --workdir .work
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

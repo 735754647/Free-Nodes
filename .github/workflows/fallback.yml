@@ -1,0 +1,85 @@
+name: Local runner fallback monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Check every ten minutes. GitHub cron is UTC.
+    - cron: "*/10 * * * *"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: local-runner-fallback-monitor
+  cancel-in-progress: true
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    env:
+      LOCAL_WORKFLOW: build.yml
+      CLOUD_WORKFLOW: cloud-build.yml
+    steps:
+      - name: Start cloud fallback when local runner is unavailable
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          local_runs="$(gh api "repos/${REPOSITORY}/actions/workflows/${LOCAL_WORKFLOW}/runs?per_page=20")"
+          local_run="$(jq -c '[.workflow_runs[]] | sort_by(.created_at) | last // empty' <<<"${local_runs}")"
+          if [[ -z "${local_run}" ]]; then
+            echo "No local workflow runs found."
+            exit 0
+          fi
+
+          run_id="$(jq -r '.id' <<<"${local_run}")"
+          status="$(jq -r '.status' <<<"${local_run}")"
+          conclusion="$(jq -r '.conclusion // empty' <<<"${local_run}")"
+          created_at="$(jq -r '.created_at' <<<"${local_run}")"
+          updated_at="$(jq -r '.updated_at' <<<"${local_run}")"
+          head_sha="$(jq -r '.head_sha' <<<"${local_run}")"
+          head_branch="$(jq -r '.head_branch // env.DEFAULT_BRANCH' <<<"${local_run}")"
+          now="$(date +%s)"
+          created_epoch="$(date -d "${created_at}" +%s)"
+          updated_epoch="$(date -d "${updated_at}" +%s)"
+          queued_age=$((now - created_epoch))
+          running_age=$((now - updated_epoch))
+
+          echo "Latest local run: ${run_id}, status=${status}, conclusion=${conclusion}, queued_age=${queued_age}s"
+
+          reason=""
+          if [[ "${status}" == "queued" && ${queued_age} -ge 600 ]]; then
+            reason="local runner has been queued for more than 10 minutes"
+          elif [[ "${status}" == "completed" && "${conclusion}" != "success" ]]; then
+            reason="local workflow ended with ${conclusion}"
+          elif [[ "${status}" == "in_progress" && ${running_age} -ge 3600 ]]; then
+            reason="local workflow has not updated for more than 60 minutes"
+          else
+            echo "Local workflow is healthy or still within the grace period; no fallback needed."
+            exit 0
+          fi
+
+          cloud_runs="$(gh api "repos/${REPOSITORY}/actions/workflows/${CLOUD_WORKFLOW}/runs?per_page=50")"
+          existing_cloud="$(jq --arg sha "${head_sha}" --arg created "${created_at}" '[.workflow_runs[] | select(.head_sha == $sha and .created_at >= $created)] | length' <<<"${cloud_runs}")"
+          if [[ "${existing_cloud}" -gt 0 ]]; then
+            echo "A cloud fallback already exists for ${head_sha}; nothing to do."
+            exit 0
+          fi
+
+          if [[ "${status}" != "completed" ]]; then
+            echo "Cancelling local run ${run_id}: ${reason}"
+            gh api --method POST "repos/${REPOSITORY}/actions/runs/${run_id}/cancel" >/dev/null
+          fi
+
+          echo "Dispatching cloud fallback: ${reason}"
+          gh workflow run "${CLOUD_WORKFLOW}" \
+            --repo "${REPOSITORY}" \
+            --ref "${head_branch}" \
+            -f "checkout_ref=${head_sha}" \
+            -f "source_run_id=${run_id}" \
+            -f "reason=${reason}"
