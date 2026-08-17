@@ -112,6 +112,7 @@ def aliyun_tcp_prefilter(
     results: dict[Endpoint, bool] = {}
     errors = 0
     consecutive_errors = 0
+    error_samples: list[str] = []
     error_limit = max(1, max_consecutive_errors)
     try:
         for index, endpoint in enumerate(endpoints, start=1):
@@ -126,12 +127,16 @@ def aliyun_tcp_prefilter(
                     raise requests.RequestException(f"HTTP {response.status_code}")
                 results[endpoint] = "ok" in response.text.lower()
                 consecutive_errors = 0
-            except (requests.RequestException, OSError, TimeoutError):
+            except (requests.RequestException, OSError, TimeoutError) as exc:
                 errors += 1
                 consecutive_errors += 1
+                detail = str(exc) if str(exc).startswith("HTTP ") else type(exc).__name__
+                if len(error_samples) < 3:
+                    error_samples.append(f"{server}:{port} ({detail})")
                 if consecutive_errors >= error_limit:
                     print(
-                        "Aliyun FC TCP prefilter is unavailable; keeping untested endpoints.",
+                        "Aliyun FC TCP prefilter is unavailable; keeping untested endpoints. "
+                        f"Error samples: {', '.join(error_samples)}",
                         flush=True,
                     )
                     break

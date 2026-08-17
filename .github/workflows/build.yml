@@ -41,6 +41,42 @@ jobs:
       - name: Install Mihomo
         run: python scripts/install_mihomo.py --output .bin/mihomo
 
+      - name: Probe Aliyun FC
+        continue-on-error: true
+        env:
+          ALIYUN_FC_URL: ${{ secrets.ALIYUN_FC_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          import time
+          import requests
+
+          url = os.environ.get("ALIYUN_FC_URL", "").strip().strip("\"'")
+          if not url:
+              print("Aliyun FC probe skipped: ALIYUN_FC_URL is empty")
+              raise SystemExit(0)
+
+          session = requests.Session()
+          session.trust_env = False
+          started = time.monotonic()
+          try:
+              response = session.get(
+                  url,
+                  params={"ip": "www.baidu.com", "port": 443},
+                  timeout=15,
+              )
+              elapsed = time.monotonic() - started
+              print(
+                  f"Aliyun FC probe status={response.status_code} "
+                  f"elapsed={elapsed:.2f}s body={response.text[:200]!r}"
+              )
+          except requests.RequestException as exc:
+              elapsed = time.monotonic() - started
+              print(f"Aliyun FC probe error={type(exc).__name__} elapsed={elapsed:.2f}s")
+          finally:
+              session.close()
+          PY
+
       - name: Build subscriptions
         env:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
