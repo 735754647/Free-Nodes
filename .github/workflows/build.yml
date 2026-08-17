@@ -44,9 +44,16 @@ jobs:
           $candidates = @()
           $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
           if ($launcher) {
-            $candidate = (& $launcher.Source -3 -c "import sys; print(sys.executable)" 2>$null | Select-Object -Last 1).Trim()
-            if ($candidate -and (Test-Path -LiteralPath $candidate)) {
-              $candidates += $candidate
+            try {
+              $launcherOutput = & $launcher.Source -3 -c "import sys; print(sys.executable)" 2>$null
+              if ($LASTEXITCODE -eq 0 -and $launcherOutput) {
+                $candidate = ($launcherOutput | Select-Object -Last 1).Trim()
+                if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+                  $candidates += $candidate
+                }
+              }
+            } catch {
+              Write-Host "Python launcher is present but unavailable for this runner account."
             }
           }
           $python = Get-Command python.exe -ErrorAction SilentlyContinue
