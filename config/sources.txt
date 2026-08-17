@@ -12,6 +12,7 @@ https://raw.githubusercontent.com/peasoft/NoMoreWalls/refs/heads/master/list.txt
 https://raw.githubusercontent.com/chengaopan/AutoMergePublicNodes/refs/heads/master/list.txt
 https://raw.githubusercontent.com/ShatakVPN/ConfigForge-V2Ray/main/configs/all.txt
 https://raw.githubusercontent.com/shaoyouvip/free/refs/heads/main/base64.txt
+https://raw.githubusercontent.com/Barabama/FreeNodes/HEAD/nodes/merged.txt
 # V2Nodes rotates its public subscription key. The landing page is resolved
 # automatically on every build, so no key needs to be stored here.
 V2Nodes (automatic key) | https://www.v2nodes.com/
