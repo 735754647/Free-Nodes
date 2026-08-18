@@ -7,6 +7,7 @@
 # Public sources supplied for this project.
 https://git.io/emzv2ray
 https://openproxylist.com/v2ray/rawlist/subscribe
+https://www.ermao.net/sub/v2ray/ermao.net
 https://raw.githubusercontent.com/free18/v2ray/refs/heads/main/v.txt
 https://raw.githubusercontent.com/peasoft/NoMoreWalls/refs/heads/master/list.txt
 https://raw.githubusercontent.com/chengaopan/AutoMergePublicNodes/refs/heads/master/list.txt
@@ -16,7 +17,6 @@ https://raw.githubusercontent.com/Barabama/FreeNodes/HEAD/nodes/merged.txt
 https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/v2ray-base64.txt
 https://raw.githubusercontent.com/zhuhaiuk/free-nodes/main/nodes.txt
 https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub
-https://www.ermao.net/sub/v2ray/ermao.net
 https://raw.githubusercontent.com/sunmiao4458/free-proxy-airport/main/output/clash.yaml
 https://raw.githubusercontent.com/PrinceVSFX/Adapt-Configs/main/Configs/Adapt_VPN.txt
 https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLESS_RUS_mobile.txt
