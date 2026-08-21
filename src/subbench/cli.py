@@ -90,13 +90,19 @@ def run(args: argparse.Namespace) -> int:
     )
     nodes: list[Node] = []
     source_errors: list[dict[str, str]] = []
+    skipped_nodes: list[str] = []
     for result in source_results:
         if result.error:
             source_errors.append({"source": result.source.name, "error": result.error})
             continue
-        nodes.extend(parse_document(result.text or "", result.source.name))
+        nodes.extend(parse_document(result.text or "", result.source.name, skipped_nodes))
 
     print(f"Fetched {len(source_results)} sources and parsed {len(nodes)} candidate nodes.")
+    if skipped_nodes:
+        print(
+            f"Skipped {len(skipped_nodes)} VLESS nodes with unsupported Mihomo encryption parameters.",
+            flush=True,
+        )
 
     unique: dict[str, Node] = {}
     for node in nodes:

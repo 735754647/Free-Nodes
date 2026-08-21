@@ -15,6 +15,40 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(node.clash["ws-opts"]["headers"]["Host"], "cdn.example.com")
         self.assertTrue(node.clash["tls"])
 
+    def test_vless_non_none_encryption_is_rejected_for_mihomo(self):
+        with self.assertRaisesRegex(ValueError, "unsupported VLESS encryption"):
+            parse_uri(
+                "vless://00000000-0000-4000-8000-000000000001@example.com:443?encryption=mlkem768x25519plus.native.0rtt.secret",
+                "test",
+            )
+
+    def test_document_reports_skipped_vless_encryption(self):
+        skipped: list[str] = []
+        nodes = parse_document(
+            "vless://00000000-0000-4000-8000-000000000001@example.com:443?encryption=mlkem768x25519plus.native.0rtt.secret",
+            "test-source",
+            skipped,
+        )
+        self.assertEqual(nodes, [])
+        self.assertEqual(len(skipped), 1)
+        self.assertIn("test-source", skipped[0])
+
+    def test_clash_vless_non_none_encryption_is_rejected(self):
+        skipped: list[str] = []
+        nodes = parse_document(
+            "proxies:\n"
+            "  - name: bad\n"
+            "    type: vless\n"
+            "    server: example.com\n"
+            "    port: 443\n"
+            "    uuid: 00000000-0000-4000-8000-000000000001\n"
+            "    encryption: mlkem768x25519plus.native.0rtt.secret\n",
+            "test",
+            skipped,
+        )
+        self.assertEqual(nodes, [])
+        self.assertEqual(len(skipped), 1)
+
     def test_vmess_base64_subscription(self):
         payload = {
             "v": "2",

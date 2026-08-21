@@ -58,11 +58,41 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install .
 
+      - name: Resolve Mihomo release
+        id: mihomo-release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          request = urllib.request.Request(
+              "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "User-Agent": "node-subscription-builder/0.1",
+                  "Authorization": f"Bearer {os.environ.get('GITHUB_TOKEN', '')}",
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  version = json.load(response).get("tag_name", "latest")
+          except Exception as exc:
+              print(f"Could not resolve the latest Mihomo release: {exc}")
+              version = "latest"
+          print(f"Using Mihomo cache version: {version}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version}\n")
+          PY
+
       - name: Cache Mihomo
         uses: actions/cache@v5
         with:
           path: .cache/mihomo
-          key: mihomo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install_mihomo.py') }}
+          key: mihomo-${{ runner.os }}-${{ runner.arch }}-${{ steps.mihomo-release.outputs.version }}-${{ hashFiles('scripts/install_mihomo.py') }}
 
       - name: Install Mihomo
         shell: bash

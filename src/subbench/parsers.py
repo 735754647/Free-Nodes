@@ -38,6 +38,15 @@ def _truthy(value: str) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+def _validate_vless_encryption(value: str) -> None:
+    encryption = value.strip() or "none"
+    if encryption.lower() != "none":
+        raise ValueError(
+            "unsupported VLESS encryption for Mihomo: "
+            f"{encryption[:120]}"
+        )
+
+
 def _normalize_ss_cipher(value: str) -> str:
     aliases = {
         "chacha20-poly1305": "chacha20-ietf-poly1305",
@@ -109,12 +118,18 @@ def extract_uris(text: str) -> list[str]:
     return [match.rstrip(".,);]}") for match in URI_PATTERN.findall(html.unescape(candidate))]
 
 
-def parse_document(text: str, source: str) -> list[Node]:
+def parse_document(
+    text: str,
+    source: str,
+    skipped_nodes: list[str] | None = None,
+) -> list[Node]:
     nodes: list[Node] = []
     for uri in extract_uris(text):
         try:
             nodes.append(parse_uri(uri, source))
-        except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+        except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            if skipped_nodes is not None and str(exc).startswith("unsupported VLESS encryption"):
+                skipped_nodes.append(f"{source}: {exc}")
             continue
 
     try:
@@ -127,7 +142,9 @@ def parse_document(text: str, source: str) -> list[Node]:
                 continue
             try:
                 nodes.append(parse_clash_proxy(proxy, source))
-            except (ValueError, KeyError, TypeError):
+            except (ValueError, KeyError, TypeError) as exc:
+                if skipped_nodes is not None and str(exc).startswith("unsupported VLESS encryption"):
+                    skipped_nodes.append(f"{source}: {exc}")
                 continue
     return nodes
 
@@ -211,9 +228,8 @@ def _parse_vless(uri: str, source: str) -> Node:
     flow = _first(query, "flow")
     if flow:
         proxy["flow"] = flow
-    encryption = _first(query, "encryption", "none")
-    if encryption != "none":
-        proxy["encryption"] = encryption
+    encryption = _first(query, "encryption", "none").strip() or "none"
+    _validate_vless_encryption(encryption)
     _apply_tls(proxy, query)
     _apply_transport(proxy, query)
     return Node(uri=uri, scheme="vless", name=name, clash=proxy, source=source)
@@ -398,6 +414,8 @@ def parse_clash_proxy(proxy: dict[str, Any], source: str) -> Node:
         raise ValueError("missing Clash endpoint")
     name = str(clash.get("name") or f"{scheme.upper()} {clash['server']}:{clash['port']}")
     clash["name"] = name
+    if scheme == "vless":
+        _validate_vless_encryption(str(clash.get("encryption", "none")))
     if scheme == "ss" and clash.get("cipher"):
         clash["cipher"] = _normalize_ss_cipher(str(clash["cipher"]))
     uri = clash_to_uri(clash)
