@@ -28,6 +28,7 @@ jobs:
       WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
       WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
       WORKFLOW_RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      WORKFLOW_RUN_UPDATED_AT: ${{ github.event.workflow_run.updated_at }}
     steps:
       - name: Start cloud fallback when local execution fails or gets stuck
         shell: bash
@@ -86,7 +87,15 @@ jobs:
           fi
 
           cloud_runs="$(gh api "repos/${REPOSITORY}/actions/workflows/${CLOUD_WORKFLOW}/runs?per_page=50")"
-          existing_cloud="$(jq --arg sha "${head_sha}" '[.workflow_runs[] | select(.head_sha == $sha)] | length' <<<"${cloud_runs}")"
+          # A previous successful cloud build for the same commit must not mask
+          # a later local upload failure. Only a cloud run created after this
+          # local run finished counts as the fallback for the current failure.
+          local_finished_at="${WORKFLOW_RUN_UPDATED_AT:-${updated_at:-}}"
+          if [[ -n "${local_finished_at}" ]]; then
+            existing_cloud="$(jq --arg sha "${head_sha}" --arg finished "${local_finished_at}" '[.workflow_runs[] | select(.head_sha == $sha and .created_at > $finished)] | length' <<<"${cloud_runs}")"
+          else
+            existing_cloud="0"
+          fi
           if [[ "${existing_cloud}" -gt 0 ]]; then
             echo "A cloud fallback already exists for ${head_sha}; nothing to do."
             exit 0
