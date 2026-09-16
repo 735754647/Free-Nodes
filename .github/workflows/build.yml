@@ -156,7 +156,7 @@ jobs:
           TCP_PREFILTER_ENABLED: "1"
           TCP_CONNECT_TIMEOUT_SECONDS: "3"
           TCP_CONNECT_ATTEMPTS: "2"
-          TCP_PREFILTER_WORKERS: "64"
+          TCP_PREFILTER_WORKERS: "128"
           ALIYUN_FC_TIMEOUT_SECONDS: "10"
           # Limit Alibaba FC checks to ten concurrent requests.
           ALIYUN_FC_WORKERS: "10"
@@ -164,16 +164,17 @@ jobs:
           ALIYUN_FC_JITTER_SECONDS: "0.1"
           ALIYUN_FC_MAX_CONSECUTIVE_ERRORS: "3"
           MAX_LATENCY_MS: "3000"
+          LATENCY_TIMEOUT_MS: "8000"
           LATENCY_TEST_ATTEMPTS: "2"
           MIN_SPEED_MBPS: "0.1"
           GEOIP_TEST_URLS: "https://www.cloudflare.com/cdn-cgi/trace,https://api.country.is/"
-          GEOIP_WORKERS: "24"
+          GEOIP_WORKERS: "64"
           # Set to "1" to enable download speed testing and MIN_SPEED_MBPS filtering.
           SPEED_TEST_ENABLED: "0"
           SPEED_TEST_LIMIT: "0"
           SPEED_TEST_BYTES: "1000000"
           SPEED_TIMEOUT_SECONDS: "8"
-          BENCHMARK_WORKERS: "24"
+          BENCHMARK_WORKERS: "48"
         run: |
           & $env:PYTHON_EXE -m subbench run --mihomo .bin/mihomo.exe --output public --workdir .work
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

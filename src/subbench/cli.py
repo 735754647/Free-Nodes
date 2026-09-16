@@ -110,7 +110,7 @@ def run(args: argparse.Namespace) -> int:
     for node in nodes:
         unique.setdefault(node.canonical_key(), node)
     nodes = list(unique.values())
-    max_nodes = _int_env("MAX_NODES", 300)
+    max_nodes = _int_env("MAX_NODES", 0)
     if max_nodes > 0:
         nodes = nodes[:max_nodes]
     if not nodes:
@@ -131,7 +131,7 @@ def run(args: argparse.Namespace) -> int:
             nodes = tcp_prefilter(
                 nodes,
                 timeout_seconds=_float_env("TCP_CONNECT_TIMEOUT_SECONDS", 3.0),
-                workers=_int_env("TCP_PREFILTER_WORKERS", 64),
+                workers=_int_env("TCP_PREFILTER_WORKERS", 128),
                 attempts=_int_env("TCP_CONNECT_ATTEMPTS", 2),
             )
         if not nodes:
@@ -156,9 +156,9 @@ def run(args: argparse.Namespace) -> int:
                 speed_bytes=_int_env("SPEED_TEST_BYTES", 1_000_000),
                 speed_limit=_int_env("SPEED_TEST_LIMIT", 0),
                 speed_timeout_seconds=_int_env("SPEED_TIMEOUT_SECONDS", 8),
-                workers=_int_env("BENCHMARK_WORKERS", 12),
+                workers=_int_env("BENCHMARK_WORKERS", 48),
                 speed_enabled=speed_test_enabled,
-                geo_workers=_int_env("GEOIP_WORKERS", 24),
+                geo_workers=_int_env("GEOIP_WORKERS", 64),
                 latency_attempts=_int_env("LATENCY_TEST_ATTEMPTS", 2),
             ) as benchmark:
                 write_mihomo_config(workdir / "mihomo-nodes.yaml", nodes)
@@ -201,7 +201,7 @@ def run(args: argparse.Namespace) -> int:
             node.latency_ms or 10**9,
         )
     )
-    max_output_nodes = _int_env("MAX_OUTPUT_NODES", 100)
+    max_output_nodes = _int_env("MAX_OUTPUT_NODES", 0)
     if max_output_nodes > 0:
         nodes = nodes[:max_output_nodes]
     if benchmark_performed:

@@ -79,12 +79,12 @@ V2Nodes 使用公开主页作为来源。程序每次运行都会从 `https://ww
 
 | 环境变量 | 默认值 | 用途 |
 | --- | ---: | --- |
-| `MAX_NODES` | `0` | `0` 表示对全部去重后的候选节点进行测速 |
-| `MAX_OUTPUT_NODES` | `0` | `0` 表示发布全部通过延迟和下载测速的可用节点 |
+| `MAX_NODES` | `0` | `0` 表示对全部去重后的候选节点进行测试 |
+| `MAX_OUTPUT_NODES` | `0` | `0` 表示发布全部通过测试的可用节点 |
 | `TCP_PREFILTER_ENABLED` | `1` | 在 Mihomo 测试前启用入口 TCP 端口预筛 |
 | `TCP_CONNECT_TIMEOUT_SECONDS` | `3` | 单个入口端口连接超时 |
 | `TCP_CONNECT_ATTEMPTS` | `2` | TCP 首次失败时再尝试一次；首次成功不会重复连接 |
-| `TCP_PREFILTER_WORKERS` | `64` | 并发入口端口检测数量 |
+| `TCP_PREFILTER_WORKERS` | `128` | 并发入口端口检测数量 |
 | `ALIYUN_FC_URL` | Secret，可选 | 使用阿里云函数从杭州逐个复核入口端口；未配置时自动跳过 |
 | `ALIYUN_FC_ENABLED` | `0` | 阿里云复核总开关；设置为 `1` 时启用 |
 | `ALIYUN_FC_TIMEOUT_SECONDS` | `10` | 单次阿里云函数请求超时 |
@@ -93,19 +93,20 @@ V2Nodes 使用公开主页作为来源。程序每次运行都会从 `https://ww
 | `ALIYUN_FC_JITTER_SECONDS` | `0.1` | 随机等待抖动范围；请求仍保持串行 |
 | `ALIYUN_FC_MAX_CONSECUTIVE_ERRORS` | `3` | 连续请求异常后停止远程检测并保留未检测节点 |
 | `MAX_LATENCY_MS` | `3000` | 最大允许延迟 |
-| `LATENCY_TEST_ATTEMPTS` | `2` | Google 204 首次失败时重试一次，降低瞬时网络抖动导致的误删 |
+| `LATENCY_TIMEOUT_MS` | `8000` | 单个节点延迟测试超时 |
+| `LATENCY_TEST_ATTEMPTS` | `2` | 首次失败时再测试一次，降低瞬时网络抖动导致的误删 |
 | `SOURCE_TIMEOUT_SECONDS` | `60` | 单个来源的连接/读取超时 |
 | `SOURCE_RETRIES` | `3` | 来源临时连接失败时的额外重试次数 |
 | `SOURCE_RETRY_BACKOFF_SECONDS` | `2` | 来源重试之间的递增等待秒数 |
 | `FETCH_WORKERS` | `4` | 并发抓取来源数量，降低同一出口拥塞 |
 | `MIN_SPEED_MBPS` | `0.1` | 最低下载速度；低于 `0.1 Mbps` 或未完成下载测速的节点不会发布 |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
-| `GEOIP_WORKERS` | `24` | 并发查询真实出口国家数量；每个节点使用独立本地 Mihomo 入口 |
+| `GEOIP_WORKERS` | `64` | 并发查询真实出口国家数量；每个节点使用独立本地 Mihomo 入口 |
 | `SPEED_TEST_ENABLED` | `0` | `0` 关闭下载测速；改成 `1` 可恢复测速和最低速度过滤 |
 | `SPEED_TEST_LIMIT` | `0` | `0` 表示对全部延迟测试通过的节点执行下载测速 |
 | `SPEED_TEST_BYTES` | `1000000` | 启用测速后每个节点下载约 1 MB，用于筛选而非精确带宽评测 |
 | `SPEED_TIMEOUT_SECONDS` | `8` | 单个节点下载测速读取超时 |
-| `BENCHMARK_WORKERS` | `24` | 并发延迟测试数量 |
+| `BENCHMARK_WORKERS` | `48` | 并发延迟测试数量 |
 
 构建调度器会先使用 `RUNNER_STATUS_TOKEN` 查询 Windows/X64 自托管 Runner：明确在线且空闲时立即使用本地 Runner；离线、忙碌、Token 缺失、权限不足、API 超时或返回异常时立即使用 GitHub 云端 Runner。本地任务执行失败时也会通过完成事件立即触发云端兜底，十分钟监控仅用于处理状态查询后电脑突然离线等极端情况。测速结果反映实际执行 Runner 所在网络到节点的质量。
 
@@ -209,12 +210,12 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 
 | Variable | Default | Purpose |
 | --- | ---: | --- |
-| `MAX_NODES` | `0` | `0` benchmarks every deduplicated candidate |
-| `MAX_OUTPUT_NODES` | `0` | `0` publishes every node that passes latency and download testing |
+| `MAX_NODES` | `0` | `0` tests every deduplicated candidate |
+| `MAX_OUTPUT_NODES` | `0` | `0` publishes every node that passes testing |
 | `TCP_PREFILTER_ENABLED` | `1` | Enables entry TCP port prefiltering before Mihomo tests |
 | `TCP_CONNECT_TIMEOUT_SECONDS` | `3` | Per-entry TCP connection timeout |
 | `TCP_CONNECT_ATTEMPTS` | `2` | Retries TCP once after an initial failure; successful connections are not repeated |
-| `TCP_PREFILTER_WORKERS` | `64` | Concurrent entry-port checks |
+| `TCP_PREFILTER_WORKERS` | `128` | Concurrent entry-port checks |
 | `ALIYUN_FC_URL` | Optional secret | Rechecks entry ports sequentially from Alibaba Cloud Hangzhou; skipped when unset |
 | `ALIYUN_FC_ENABLED` | `0` | Master switch for Alibaba Cloud rechecks; set to `1` to enable |
 | `ALIYUN_FC_TIMEOUT_SECONDS` | `10` | Timeout for each Alibaba Cloud function request |
@@ -223,19 +224,20 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `ALIYUN_FC_JITTER_SECONDS` | `0.1` | Randomized delay range; requests remain serial |
 | `ALIYUN_FC_MAX_CONSECUTIVE_ERRORS` | `3` | Stops remote checks after consecutive request errors and preserves untested nodes |
 | `MAX_LATENCY_MS` | `3000` | Maximum accepted latency |
-| `LATENCY_TEST_ATTEMPTS` | `2` | Retries the Google 204 check once after an initial failure to reduce transient false negatives |
+| `LATENCY_TIMEOUT_MS` | `8000` | Per-node latency test timeout |
+| `LATENCY_TEST_ATTEMPTS` | `2` | Retries the latency check once after an initial failure to reduce transient false negatives |
 | `SOURCE_TIMEOUT_SECONDS` | `60` | Per-source connection/read timeout |
 | `SOURCE_RETRIES` | `3` | Extra retries for transient source failures |
 | `SOURCE_RETRY_BACKOFF_SECONDS` | `2` | Increasing delay between source retries |
 | `FETCH_WORKERS` | `4` | Concurrent source downloads to reduce congestion on one egress |
 | `MIN_SPEED_MBPS` | `0.1` | Minimum download speed; nodes below `0.1 Mbps` or without a completed speed test are rejected |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |
-| `GEOIP_WORKERS` | `24` | Concurrent exit-country lookups; each node uses a dedicated local Mihomo listener |
+| `GEOIP_WORKERS` | `64` | Concurrent exit-country lookups; each node uses a dedicated local Mihomo listener |
 | `SPEED_TEST_ENABLED` | `0` | `0` disables download tests; set to `1` to restore speed filtering |
 | `SPEED_TEST_LIMIT` | `0` | `0` tests every node that passes the latency check |
 | `SPEED_TEST_BYTES` | `1000000` | Downloads about 1 MB per node when enabled, for screening rather than precise bandwidth benchmarking |
 | `SPEED_TIMEOUT_SECONDS` | `8` | Per-node download read timeout |
-| `BENCHMARK_WORKERS` | `24` | Concurrent latency checks |
+| `BENCHMARK_WORKERS` | `48` | Concurrent latency checks |
 
 The dispatcher checks the Windows/X64 self-hosted runner with the `RUNNER_STATUS_TOKEN`. It immediately selects the local runner only when it is explicitly online and idle; an offline or busy runner, a missing or unauthorized token, an API timeout, or an invalid response immediately selects the GitHub-hosted runner. A failed local run triggers the cloud fallback through a completion event, while the ten-minute monitor remains only as a safety net for rare disconnects after routing. Results reflect the network of whichever runner performed the checks.
 

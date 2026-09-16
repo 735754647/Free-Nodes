@@ -3,7 +3,7 @@ param(
     [int]$MaxLatencyMs = 3000,
     [double]$MinSpeedMbps = 0.1,
     [int]$SpeedTestBytes = 1000000,
-    [int]$LatencyWorkers = 8,
+    [int]$LatencyWorkers = 48,
     [int]$SourceTimeoutSeconds = 60,
     [int]$SourceRetries = 3,
     [int]$FetchWorkers = 4,
@@ -89,8 +89,9 @@ try {
     $env:TCP_PREFILTER_ENABLED = "1"
     $env:TCP_CONNECT_TIMEOUT_SECONDS = "3"
     $env:TCP_CONNECT_ATTEMPTS = "2"
-    $env:TCP_PREFILTER_WORKERS = "64"
+    $env:TCP_PREFILTER_WORKERS = "128"
     $env:MAX_LATENCY_MS = "$MaxLatencyMs"
+    $env:LATENCY_TIMEOUT_MS = "8000"
     $env:LATENCY_TEST_ATTEMPTS = "2"
     $env:MIN_SPEED_MBPS = "$MinSpeedMbps"
     $env:GEOIP_WORKERS = "$LatencyWorkers"
