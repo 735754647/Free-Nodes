@@ -146,12 +146,66 @@ jobs:
           BENCHMARK_WORKERS: "48"
         run: subbench run --mihomo .bin/mihomo --output public --workdir .work
 
-      - name: Upload subscription output
+      - name: Upload subscription output (attempt 1)
+        id: upload_subscription_1
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
           path: public
           if-no-files-found: error
+          overwrite: true
+          compression-level: 1
+
+      - name: Wait before subscription output upload retry 2
+        id: upload_subscription_2_wait
+        if: ${{ always() && steps.upload_subscription_1.outcome != 'success' }}
+        shell: bash
+        run: sleep 15
+
+      - name: Retry subscription output upload (attempt 2)
+        id: upload_subscription_2
+        if: ${{ always() && steps.upload_subscription_1.outcome != 'success' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: subscription-output
+          path: public
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 1
+
+      - name: Wait before subscription output upload retry 3
+        id: upload_subscription_3_wait
+        if: ${{ always() && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2.outcome != 'success' }}
+        shell: bash
+        run: sleep 30
+
+      - name: Retry subscription output upload (attempt 3)
+        id: upload_subscription_3
+        if: ${{ always() && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2.outcome != 'success' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: subscription-output
+          path: public
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 1
+
+      - name: Verify subscription output upload
+        if: ${{ always() }}
+        shell: bash
+        env:
+          UPLOAD_1: ${{ steps.upload_subscription_1.outcome }}
+          UPLOAD_2: ${{ steps.upload_subscription_2.outcome }}
+          UPLOAD_3: ${{ steps.upload_subscription_3.outcome }}
+        run: |
+          echo "Artifact upload attempts: ${UPLOAD_1}, ${UPLOAD_2}, ${UPLOAD_3}"
+          if [[ "${UPLOAD_1}" != "success" && "${UPLOAD_2}" != "success" && "${UPLOAD_3}" != "success" ]]; then
+            echo "All subscription artifact upload attempts failed." >&2
+            exit 1
+          fi
 
   deploy:
     needs: build
