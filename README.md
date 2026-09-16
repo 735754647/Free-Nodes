@@ -94,6 +94,10 @@ V2Nodes 使用公开主页作为来源。程序每次运行都会从 `https://ww
 | `ALIYUN_FC_MAX_CONSECUTIVE_ERRORS` | `3` | 连续请求异常后停止远程检测并保留未检测节点 |
 | `MAX_LATENCY_MS` | `3000` | 最大允许延迟 |
 | `LATENCY_TEST_ATTEMPTS` | `2` | Google 204 首次失败时重试一次，降低瞬时网络抖动导致的误删 |
+| `SOURCE_TIMEOUT_SECONDS` | `60` | 单个来源的连接/读取超时 |
+| `SOURCE_RETRIES` | `3` | 来源临时连接失败时的额外重试次数 |
+| `SOURCE_RETRY_BACKOFF_SECONDS` | `2` | 来源重试之间的递增等待秒数 |
+| `FETCH_WORKERS` | `4` | 并发抓取来源数量，降低同一出口拥塞 |
 | `MIN_SPEED_MBPS` | `0.1` | 最低下载速度；低于 `0.1 Mbps` 或未完成下载测速的节点不会发布 |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | 依次通过节点查询实际出口 IP 和国家代码 |
 | `GEOIP_WORKERS` | `24` | 并发查询真实出口国家数量；每个节点使用独立本地 Mihomo 入口 |
@@ -220,6 +224,10 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | `ALIYUN_FC_MAX_CONSECUTIVE_ERRORS` | `3` | Stops remote checks after consecutive request errors and preserves untested nodes |
 | `MAX_LATENCY_MS` | `3000` | Maximum accepted latency |
 | `LATENCY_TEST_ATTEMPTS` | `2` | Retries the Google 204 check once after an initial failure to reduce transient false negatives |
+| `SOURCE_TIMEOUT_SECONDS` | `60` | Per-source connection/read timeout |
+| `SOURCE_RETRIES` | `3` | Extra retries for transient source failures |
+| `SOURCE_RETRY_BACKOFF_SECONDS` | `2` | Increasing delay between source retries |
+| `FETCH_WORKERS` | `4` | Concurrent source downloads to reduce congestion on one egress |
 | `MIN_SPEED_MBPS` | `0.1` | Minimum download speed; nodes below `0.1 Mbps` or without a completed speed test are rejected |
 | `GEOIP_TEST_URLS` | Cloudflare trace + country.is | Looks up the actual exit IP and country code with fallback |
 | `GEOIP_WORKERS` | `24` | Concurrent exit-country lookups; each node uses a dedicated local Mihomo listener |

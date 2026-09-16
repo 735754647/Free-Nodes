@@ -4,12 +4,19 @@ param(
     [double]$MinSpeedMbps = 0.1,
     [int]$SpeedTestBytes = 1000000,
     [int]$LatencyWorkers = 8,
+    [int]$SourceTimeoutSeconds = 60,
+    [int]$SourceRetries = 3,
+    [int]$FetchWorkers = 4,
     [switch]$EnableSpeedTest
 )
 
 $ErrorActionPreference = "Stop"
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
+$env:SOURCE_TIMEOUT_SECONDS = "$SourceTimeoutSeconds"
+$env:SOURCE_RETRIES = "$SourceRetries"
+$env:SOURCE_RETRY_BACKOFF_SECONDS = "2"
+$env:FETCH_WORKERS = "$FetchWorkers"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Mihomo = Join-Path $ProjectRoot ".bin\mihomo.exe"
 $RuntimeDir = Join-Path $ProjectRoot ".runtime\python"

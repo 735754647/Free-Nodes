@@ -85,8 +85,10 @@ def run(args: argparse.Namespace) -> int:
 
     source_results = fetch_sources(
         source_specs,
-        timeout_seconds=_int_env("SOURCE_TIMEOUT_SECONDS", 20),
-        workers=_int_env("FETCH_WORKERS", 8),
+        timeout_seconds=_float_env("SOURCE_TIMEOUT_SECONDS", 60.0),
+        workers=_int_env("FETCH_WORKERS", 4),
+        retries=_int_env("SOURCE_RETRIES", 3),
+        retry_backoff_seconds=_float_env("SOURCE_RETRY_BACKOFF_SECONDS", 2.0),
     )
     nodes: list[Node] = []
     source_errors: list[dict[str, str]] = []

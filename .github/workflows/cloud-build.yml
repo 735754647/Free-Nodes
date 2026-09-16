@@ -117,6 +117,10 @@ jobs:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
           PYTHONUTF8: "1"
           PYTHONIOENCODING: "utf-8"
+          SOURCE_TIMEOUT_SECONDS: "60"
+          SOURCE_RETRIES: "3"
+          SOURCE_RETRY_BACKOFF_SECONDS: "2"
+          FETCH_WORKERS: "4"
           ALIYUN_FC_ENABLED: "0"
           MAX_NODES: "0"
           MAX_OUTPUT_NODES: "0"

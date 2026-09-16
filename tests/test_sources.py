@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch
 
+import requests
+
 from subbench.sources import (
     SourceSpec,
     _extract_v2nodes_subscription_url,
@@ -14,6 +16,9 @@ class DummyResponse:
         self.encoding = "utf-8"
 
     def raise_for_status(self) -> None:
+        return None
+
+    def close(self) -> None:
         return None
 
     def iter_content(self, chunk_size: int):
@@ -59,6 +64,20 @@ class SourceTests(unittest.TestCase):
         self.assertIsNone(results[0].text)
         self.assertIn("did not contain a subscription link", results[0].error or "")
         self.assertEqual(requester.call_count, 1)
+
+    def test_retries_transient_source_failures(self):
+        responses = [requests.Timeout("temporary timeout"), DummyResponse("vless://example")]
+        with patch("subbench.sources.requests.get", side_effect=responses) as requester:
+            results = fetch_sources(
+                [SourceSpec(name="retry-source", url="https://example.com/source")],
+                workers=1,
+                retries=1,
+                retry_backoff_seconds=0,
+            )
+
+        self.assertEqual(results[0].text, "vless://example")
+        self.assertIsNone(results[0].error)
+        self.assertEqual(requester.call_count, 2)
 
 
 if __name__ == "__main__":
