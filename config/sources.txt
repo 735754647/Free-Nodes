@@ -7,12 +7,12 @@
 # Public sources supplied for this project.
 https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt
 https://openproxylist.com/v2ray/rawlist/subscribe
-https://www.ermao.net/sub/v2ray/ermao.net
+https://cdn.jsdelivr.net/gh/ermaozi/get_subscribe@main/subscribe/v2ray.txt
 https://raw.githubusercontent.com/free18/v2ray/refs/heads/main/v.txt
 https://raw.githubusercontent.com/peasoft/NoMoreWalls/refs/heads/master/list.txt
 https://raw.githubusercontent.com/chengaopan/AutoMergePublicNodes/refs/heads/master/list.txt
 https://raw.githubusercontent.com/ShatakVPN/ConfigForge-V2Ray/main/configs/all.txt
-https://raw.githubusercontent.com/shaoyouvip/free/refs/heads/main/base64.txt
+https://cdn.jsdelivr.net/gh/shaoyouvip/free@main/base64.txt
 https://raw.githubusercontent.com/Barabama/FreeNodes/HEAD/nodes/merged.txt
 https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/v2ray-base64.txt
 https://raw.githubusercontent.com/zhuhaiuk/free-nodes/main/nodes.txt
