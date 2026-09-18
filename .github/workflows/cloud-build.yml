@@ -124,7 +124,7 @@ jobs:
           ALIYUN_FC_ENABLED: "0"
           MAX_NODES: "0"
           MAX_OUTPUT_NODES: "0"
-          TCP_PREFILTER_ENABLED: "1"
+          TCP_PREFILTER_ENABLED: "0"
           TCP_CONNECT_TIMEOUT_SECONDS: "3"
           TCP_CONNECT_ATTEMPTS: "2"
           TCP_PREFILTER_WORKERS: "128"

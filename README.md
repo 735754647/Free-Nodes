@@ -81,7 +81,7 @@ V2Nodes 使用公开主页作为来源。程序每次运行都会从 `https://ww
 | --- | ---: | --- |
 | `MAX_NODES` | `0` | `0` 表示对全部去重后的候选节点进行测试 |
 | `MAX_OUTPUT_NODES` | `0` | `0` 表示发布全部通过测试的可用节点 |
-| `TCP_PREFILTER_ENABLED` | `1` | 在 Mihomo 测试前启用入口 TCP 端口预筛 |
+| `TCP_PREFILTER_ENABLED` | `0` | 默认关闭入口 TCP 预筛，确保每个去重节点都进入延迟测试；设为 `1` 会先淘汰 TCP 不通节点 |
 | `TCP_CONNECT_TIMEOUT_SECONDS` | `3` | 单个入口端口连接超时 |
 | `TCP_CONNECT_ATTEMPTS` | `2` | TCP 首次失败时再尝试一次；首次成功不会重复连接 |
 | `TCP_PREFILTER_WORKERS` | `128` | 并发入口端口检测数量 |
@@ -212,7 +212,7 @@ The main limits are configured in [`.github/workflows/build.yml`](.github/workfl
 | --- | ---: | --- |
 | `MAX_NODES` | `0` | `0` tests every deduplicated candidate |
 | `MAX_OUTPUT_NODES` | `0` | `0` publishes every node that passes testing |
-| `TCP_PREFILTER_ENABLED` | `1` | Enables entry TCP port prefiltering before Mihomo tests |
+| `TCP_PREFILTER_ENABLED` | `0` | Disabled by default so every deduplicated node reaches latency testing; set to `1` to reject failed TCP endpoints first |
 | `TCP_CONNECT_TIMEOUT_SECONDS` | `3` | Per-entry TCP connection timeout |
 | `TCP_CONNECT_ATTEMPTS` | `2` | Retries TCP once after an initial failure; successful connections are not repeated |
 | `TCP_PREFILTER_WORKERS` | `128` | Concurrent entry-port checks |

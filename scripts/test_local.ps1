@@ -86,7 +86,7 @@ try {
 
     $env:MAX_NODES = "$MaxNodes"
     $env:MAX_OUTPUT_NODES = "$MaxNodes"
-    $env:TCP_PREFILTER_ENABLED = "1"
+    $env:TCP_PREFILTER_ENABLED = "0"
     $env:TCP_CONNECT_TIMEOUT_SECONDS = "3"
     $env:TCP_CONNECT_ATTEMPTS = "2"
     $env:TCP_PREFILTER_WORKERS = "128"

@@ -127,7 +127,7 @@ def run(args: argparse.Namespace) -> int:
         raise RuntimeError(f"Mihomo binary not found: {mihomo}")
     else:
         benchmark_performed = True
-        if _bool_env("TCP_PREFILTER_ENABLED", True):
+        if _bool_env("TCP_PREFILTER_ENABLED", False):
             nodes = tcp_prefilter(
                 nodes,
                 timeout_seconds=_float_env("TCP_CONNECT_TIMEOUT_SECONDS", 3.0),
