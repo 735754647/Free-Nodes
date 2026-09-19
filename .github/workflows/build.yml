@@ -142,6 +142,7 @@ jobs:
           }
 
       - name: Build subscriptions
+        id: build_subscriptions
         env:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
           PYTHONUTF8: "1"
@@ -192,13 +193,13 @@ jobs:
 
       - name: Wait before subscription output upload retry 2
         id: upload_subscription_2
-        if: ${{ always() && steps.upload_subscription_1.outcome != 'success' }}
+        if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' }}
         shell: powershell -ExecutionPolicy Bypass -File {0}
         run: Start-Sleep -Seconds 15
 
       - name: Retry subscription output upload (attempt 2)
         id: upload_subscription_2_action
-        if: ${{ always() && steps.upload_subscription_1.outcome != 'success' }}
+        if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' }}
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
@@ -210,13 +211,13 @@ jobs:
 
       - name: Wait before subscription output upload retry 3
         id: upload_subscription_3_wait
-        if: ${{ always() && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2_action.outcome != 'success' }}
+        if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2_action.outcome != 'success' }}
         shell: powershell -ExecutionPolicy Bypass -File {0}
         run: Start-Sleep -Seconds 30
 
       - name: Retry subscription output upload (attempt 3)
         id: upload_subscription_3
-        if: ${{ always() && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2_action.outcome != 'success' }}
+        if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2_action.outcome != 'success' }}
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
@@ -230,10 +231,15 @@ jobs:
         if: ${{ always() }}
         shell: powershell -ExecutionPolicy Bypass -File {0}
         env:
+          BUILD_OUTCOME: ${{ steps.build_subscriptions.outcome }}
           UPLOAD_1: ${{ steps.upload_subscription_1.outcome }}
           UPLOAD_2: ${{ steps.upload_subscription_2_action.outcome }}
           UPLOAD_3: ${{ steps.upload_subscription_3.outcome }}
         run: |
+          if ($env:BUILD_OUTCOME -ne "success") {
+            Write-Host "Build subscriptions did not complete successfully ($env:BUILD_OUTCOME); skipping artifact verification."
+            exit 0
+          }
           Write-Host "Artifact upload attempts: $env:UPLOAD_1, $env:UPLOAD_2, $env:UPLOAD_3"
           if ($env:UPLOAD_1 -ne "success" -and $env:UPLOAD_2 -ne "success" -and $env:UPLOAD_3 -ne "success") {
             throw "All subscription artifact upload attempts failed."
