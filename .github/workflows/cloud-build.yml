@@ -33,9 +33,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
+        timeout-minutes: 5
+        env:
+          GIT_TERMINAL_PROMPT: "0"
+          GIT_CONFIG_COUNT: "3"
+          GIT_CONFIG_KEY_0: http.version
+          GIT_CONFIG_VALUE_0: HTTP/1.1
+          GIT_CONFIG_KEY_1: http.lowSpeedLimit
+          GIT_CONFIG_VALUE_1: "1"
+          GIT_CONFIG_KEY_2: http.lowSpeedTime
+          GIT_CONFIG_VALUE_2: "60"
         uses: actions/checkout@v5
         with:
           ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 1
+          fetch-tags: false
+          show-progress: true
 
       - name: Set up Python
         uses: actions/setup-python@v6
