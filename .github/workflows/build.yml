@@ -33,13 +33,15 @@ jobs:
         timeout-minutes: 5
         env:
           GIT_TERMINAL_PROMPT: "0"
-          GIT_CONFIG_COUNT: "3"
+          GIT_CONFIG_COUNT: "4"
           GIT_CONFIG_KEY_0: http.version
           GIT_CONFIG_VALUE_0: HTTP/1.1
           GIT_CONFIG_KEY_1: http.lowSpeedLimit
           GIT_CONFIG_VALUE_1: "1"
           GIT_CONFIG_KEY_2: http.lowSpeedTime
           GIT_CONFIG_VALUE_2: "60"
+          GIT_CONFIG_KEY_3: http.proxy
+          GIT_CONFIG_VALUE_3: http://127.0.0.1:10808
         uses: actions/checkout@v5
         with:
           ref: ${{ inputs.checkout_ref || github.sha }}
