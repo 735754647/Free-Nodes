@@ -201,10 +201,7 @@ jobs:
         env:
           HTTP_PROXY: http://127.0.0.1:10808
           HTTPS_PROXY: http://127.0.0.1:10808
-          http_proxy: http://127.0.0.1:10808
-          https_proxy: http://127.0.0.1:10808
           NO_PROXY: 127.0.0.1,localhost
-          no_proxy: 127.0.0.1,localhost
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
@@ -226,10 +223,7 @@ jobs:
         env:
           HTTP_PROXY: http://127.0.0.1:10808
           HTTPS_PROXY: http://127.0.0.1:10808
-          http_proxy: http://127.0.0.1:10808
-          https_proxy: http://127.0.0.1:10808
           NO_PROXY: 127.0.0.1,localhost
-          no_proxy: 127.0.0.1,localhost
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
@@ -251,10 +245,7 @@ jobs:
         env:
           HTTP_PROXY: http://127.0.0.1:10808
           HTTPS_PROXY: http://127.0.0.1:10808
-          http_proxy: http://127.0.0.1:10808
-          https_proxy: http://127.0.0.1:10808
           NO_PROXY: 127.0.0.1,localhost
-          no_proxy: 127.0.0.1,localhost
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
