@@ -198,10 +198,6 @@ jobs:
       - name: Upload subscription output (attempt 1)
         id: upload_subscription_1
         continue-on-error: true
-        env:
-          HTTP_PROXY: http://127.0.0.1:10808
-          HTTPS_PROXY: http://127.0.0.1:10808
-          NO_PROXY: 127.0.0.1,localhost
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
@@ -209,6 +205,42 @@ jobs:
           if-no-files-found: error
           overwrite: true
           compression-level: 1
+
+      - name: Enable proxy for artifact upload retries
+        id: artifact_proxy_fallback
+        if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' }}
+        shell: powershell -ExecutionPolicy Bypass -File {0}
+        env:
+          LOCAL_PROXY: http://127.0.0.1:10808
+        run: |
+          $targets = @('https://api.github.com')
+          if ($env:ACTIONS_RUNTIME_URL) {
+            $targets += $env:ACTIONS_RUNTIME_URL
+          }
+
+          $handler = New-Object System.Net.Http.HttpClientHandler
+          $handler.UseProxy = $true
+          $handler.Proxy = New-Object System.Net.WebProxy -ArgumentList $env:LOCAL_PROXY
+          $client = New-Object System.Net.Http.HttpClient($handler)
+          $client.Timeout = [TimeSpan]::FromSeconds(15)
+          try {
+            foreach ($target in $targets) {
+              $uri = [Uri]$target
+              $response = $client.GetAsync($uri).GetAwaiter().GetResult()
+              Write-Host "Proxy connectivity to $($uri.Host): HTTP $([int]$response.StatusCode)"
+              $response.Dispose()
+            }
+          } catch {
+            throw "Artifact upload failed directly, and local proxy $($env:LOCAL_PROXY) is not reachable: $($_.Exception.Message)"
+          } finally {
+            $client.Dispose()
+            $handler.Dispose()
+          }
+
+          "HTTP_PROXY=$($env:LOCAL_PROXY)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "HTTPS_PROXY=$($env:LOCAL_PROXY)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "NO_PROXY=127.0.0.1,localhost" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Direct artifact upload failed; proxy enabled for remaining upload retries."
 
       - name: Wait before subscription output upload retry 2
         id: upload_subscription_2
@@ -220,10 +252,6 @@ jobs:
         id: upload_subscription_2_action
         if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' }}
         continue-on-error: true
-        env:
-          HTTP_PROXY: http://127.0.0.1:10808
-          HTTPS_PROXY: http://127.0.0.1:10808
-          NO_PROXY: 127.0.0.1,localhost
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
@@ -242,10 +270,6 @@ jobs:
         id: upload_subscription_3
         if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2_action.outcome != 'success' }}
         continue-on-error: true
-        env:
-          HTTP_PROXY: http://127.0.0.1:10808
-          HTTPS_PROXY: http://127.0.0.1:10808
-          NO_PROXY: 127.0.0.1,localhost
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
