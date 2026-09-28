@@ -29,25 +29,69 @@ jobs:
       run:
         shell: powershell -ExecutionPolicy Bypass -File {0}
     steps:
-      - name: Check out repository
+      - name: Download repository source files
         timeout-minutes: 5
+        shell: powershell -ExecutionPolicy Bypass -File {0}
         env:
-          GIT_TERMINAL_PROMPT: "0"
-          GIT_CONFIG_COUNT: "4"
-          GIT_CONFIG_KEY_0: http.version
-          GIT_CONFIG_VALUE_0: HTTP/1.1
-          GIT_CONFIG_KEY_1: http.lowSpeedLimit
-          GIT_CONFIG_VALUE_1: "1"
-          GIT_CONFIG_KEY_2: http.lowSpeedTime
-          GIT_CONFIG_VALUE_2: "60"
-          GIT_CONFIG_KEY_3: http.proxy
-          GIT_CONFIG_VALUE_3: http://127.0.0.1:10808
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ inputs.checkout_ref || github.sha }}
-          fetch-depth: 1
-          fetch-tags: false
-          show-progress: true
+          CHECKOUT_REF: ${{ inputs.checkout_ref || github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          API_URL: ${{ github.api_url }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $ref = $env:CHECKOUT_REF
+          if (-not $ref) { throw 'No repository ref was provided for checkout.' }
+
+          $apiRoot = "$($env:API_URL.TrimEnd('/'))/repos/$($env:REPOSITORY)"
+          $headers = @{
+            Accept = 'application/vnd.github+json'
+            Authorization = "Bearer $($env:GITHUB_TOKEN)"
+            'User-Agent' = 'Free-Nodes-Runner'
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+          $tree = Invoke-RestMethod -Uri "$apiRoot/git/trees/$([Uri]::EscapeDataString($ref))?recursive=1" -Headers $headers -TimeoutSec 60
+          if ($tree.truncated) {
+            throw 'GitHub tree response was truncated; refusing to build an incomplete workspace.'
+          }
+
+          $files = @($tree.tree | Where-Object {
+            $_.type -eq 'blob' -and (
+              $_.path -eq 'pyproject.toml' -or
+              $_.path -eq 'scripts/install_mihomo.py' -or
+              $_.path -like 'config/*' -or
+              $_.path -like 'src/*'
+            )
+          })
+          if (-not ($files | Where-Object { $_.path -eq 'pyproject.toml' }) -or
+              -not ($files | Where-Object { $_.path -eq 'scripts/install_mihomo.py' }) -or
+              -not ($files | Where-Object { $_.path -like 'src/*' })) {
+            throw 'GitHub tree did not contain the required build files.'
+          }
+
+          $workspace = [System.IO.Path]::GetFullPath($env:GITHUB_WORKSPACE).TrimEnd('\')
+          $runnerTemp = [System.IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\')
+          $runnerWorkRoot = Split-Path -Parent $runnerTemp
+          $repoName = ($env:REPOSITORY -split '/')[-1]
+          $workspaceParent = Split-Path -Parent $workspace
+          if (-not $workspace.StartsWith("$runnerWorkRoot\", [System.StringComparison]::OrdinalIgnoreCase) -or
+              (Split-Path -Leaf $workspace) -ne $repoName -or
+              (Split-Path -Leaf $workspaceParent) -ne $repoName) {
+            throw "Refusing to populate unexpected runner workspace: $workspace"
+          }
+
+          New-Item -ItemType Directory -Path $workspace -Force | Out-Null
+          Get-ChildItem -LiteralPath $workspace -Force | Remove-Item -Recurse -Force
+          foreach ($file in $files) {
+            $destination = Join-Path $workspace ($file.path -replace '/', '\')
+            $parent = Split-Path -Parent $destination
+            New-Item -ItemType Directory -Path $parent -Force | Out-Null
+            $blob = Invoke-RestMethod -Uri $file.url -Headers $headers -TimeoutSec 60
+            if ($blob.encoding -ne 'base64' -or -not $blob.content) {
+              throw "GitHub blob $($file.path) was not returned as base64 content."
+            }
+            $bytes = [Convert]::FromBase64String(($blob.content -replace '\s', ''))
+            [System.IO.File]::WriteAllBytes($destination, $bytes)
+          }
+          Write-Host "Downloaded $($files.Count) required source files for $ref via GitHub API."
 
       - name: Check Python version
         shell: powershell -ExecutionPolicy Bypass -File {0}

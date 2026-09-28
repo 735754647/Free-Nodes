@@ -54,8 +54,11 @@ def choose_asset(release: dict) -> dict:
     return sorted(candidates, key=lambda asset: str(asset["name"]))[-1]
 
 
-def download(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": "node-subscription-builder/0.1"})
+def download(url: str, headers: dict[str, str] | None = None) -> bytes:
+    request_headers = {"User-Agent": "node-subscription-builder/0.1"}
+    if headers:
+        request_headers.update(headers)
+    request = urllib.request.Request(url, headers=request_headers)
     with urllib.request.urlopen(request, timeout=180) as response:
         return response.read()
 
@@ -93,7 +96,10 @@ def main() -> int:
 
     release = fetch_json("https://api.github.com/repos/MetaCubeX/mihomo/releases/latest")
     asset = choose_asset(release)
-    payload = download(asset["browser_download_url"])
+    asset_url = str(asset.get("url") or asset["browser_download_url"])
+    asset_headers = github_api_headers()
+    asset_headers["Accept"] = "application/octet-stream"
+    payload = download(asset_url, asset_headers)
     expected = str(asset.get("digest", ""))
     if expected.startswith("sha256:"):
         actual = hashlib.sha256(payload).hexdigest()
