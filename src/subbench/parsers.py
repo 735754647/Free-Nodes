@@ -186,6 +186,27 @@ def _apply_transport(proxy: dict[str, Any], query: dict[str, list[str]]) -> None
         if host:
             options["headers"] = {"Host": host}
         proxy["http-upgrade-opts"] = options
+    elif network == "xhttp":
+        options: dict[str, Any] = {}
+        path = _first(query, "path")
+        if path:
+            options["path"] = path
+        mode = _first(query, "mode")
+        if mode:
+            normalized_mode = mode.lower()
+            if normalized_mode not in {"auto", "packet-up", "stream-up"}:
+                raise ValueError(f"unsupported XHTTP mode: {mode}")
+            options["mode"] = normalized_mode
+        extra = _first(query, "extra")
+        if extra:
+            try:
+                parsed_extra = json.loads(unquote(extra))
+            except (TypeError, json.JSONDecodeError) as exc:
+                raise ValueError("invalid XHTTP extra JSON") from exc
+            if not isinstance(parsed_extra, dict):
+                raise ValueError("invalid XHTTP extra JSON")
+            options["extra"] = parsed_extra
+        proxy["xhttp-opts"] = options
 
 
 def _apply_tls(proxy: dict[str, Any], query: dict[str, list[str]]) -> None:
@@ -267,6 +288,8 @@ def _parse_vmess(uri: str, source: str) -> Node:
             proxy["servername"] = str(data["sni"])
         if data.get("fp"):
             proxy["client-fingerprint"] = str(data["fp"])
+        if _truthy(str(data.get("allowInsecure", ""))) or _truthy(str(data.get("insecure", ""))):
+            proxy["skip-cert-verify"] = True
     return Node(uri=uri, scheme="vmess", name=name, clash=proxy, source=source)
 
 
@@ -416,6 +439,11 @@ def parse_clash_proxy(proxy: dict[str, Any], source: str) -> Node:
     clash["name"] = name
     if scheme == "vless":
         _validate_vless_encryption(str(clash.get("encryption", "none")))
+    if scheme in {"vless", "vmess", "trojan"} and (
+        _truthy(str(clash.get("allowInsecure", "")))
+        or _truthy(str(clash.get("insecure", "")))
+    ):
+        clash["skip-cert-verify"] = True
     if scheme == "ss" and clash.get("cipher"):
         clash["cipher"] = _normalize_ss_cipher(str(clash["cipher"]))
     uri = clash_to_uri(clash)
@@ -514,3 +542,11 @@ def _transport_to_query(proxy: dict[str, Any], query: dict[str, str]) -> None:
             query["host"] = str(host)
     elif network == "grpc":
         query["serviceName"] = str(proxy.get("grpc-opts", {}).get("grpc-service-name", ""))
+    elif network == "xhttp":
+        options = proxy.get("xhttp-opts", {})
+        if options.get("path"):
+            query["path"] = str(options["path"])
+        if options.get("mode"):
+            query["mode"] = str(options["mode"])
+        if options.get("extra"):
+            query["extra"] = json.dumps(options["extra"], separators=(",", ":"))

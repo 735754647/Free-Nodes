@@ -15,6 +15,23 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(node.clash["ws-opts"]["headers"]["Host"], "cdn.example.com")
         self.assertTrue(node.clash["tls"])
 
+    def test_vless_xhttp_options_are_preserved(self):
+        node = parse_uri(
+            "vless://00000000-0000-4000-8000-000000000001@example.com:443?encryption=none&security=tls&type=xhttp&path=%2Fedge&mode=auto&extra=%7B%22xPaddingBytes%22%3A%22100-200%22%7D#demo",
+            "test",
+        )
+        self.assertEqual(node.clash["network"], "xhttp")
+        self.assertEqual(node.clash["xhttp-opts"]["path"], "/edge")
+        self.assertEqual(node.clash["xhttp-opts"]["mode"], "auto")
+        self.assertEqual(node.clash["xhttp-opts"]["extra"]["xPaddingBytes"], "100-200")
+
+    def test_vless_xhttp_invalid_extra_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid XHTTP extra"):
+            parse_uri(
+                "vless://00000000-0000-4000-8000-000000000001@example.com:443?encryption=none&type=xhttp&extra=not-json",
+                "test",
+            )
+
     def test_vless_non_none_encryption_is_rejected_for_mihomo(self):
         with self.assertRaisesRegex(ValueError, "unsupported VLESS encryption"):
             parse_uri(
@@ -84,6 +101,24 @@ proxies:
         self.assertEqual(len(nodes), 1)
         self.assertEqual(nodes[0].clash["type"], "trojan")
         self.assertIn("trojan://", nodes[0].uri)
+
+    def test_clash_xhttp_round_trip_keeps_path(self):
+        text = """
+proxies:
+  - name: demo
+    type: vless
+    server: example.com
+    port: 443
+    uuid: 00000000-0000-4000-8000-000000000001
+    network: xhttp
+    xhttp-opts:
+      path: /edge
+      mode: auto
+"""
+        nodes = parse_document(text, "test")
+        self.assertEqual(len(nodes), 1)
+        self.assertIn("type=xhttp", nodes[0].uri)
+        self.assertIn("path=%2Fedge", nodes[0].uri)
 
     def test_duplicate_fragments_share_key(self):
         first = parse_uri(

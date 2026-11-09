@@ -14,9 +14,9 @@
 
 | 类型 | 订阅链接 | 说明 |
 | --- | --- | --- |
-| V2Ray | `https://735754647.github.io/Free-Nodes/v2ray.txt` | Base64 编码订阅，适用于 v2rayN、v2rayNG 等客户端 |
+| V2Ray / Xray | `https://735754647.github.io/Free-Nodes/v2ray.txt` | Base64 编码的 Xray/v2rayN 兼容子集 |
 | Clash / Mihomo | `https://735754647.github.io/Free-Nodes/clash.yaml` | 完整 Clash/Mihomo 配置，包含自动延迟选择组 |
-| 原始节点 | `https://735754647.github.io/Free-Nodes/v2ray-raw.txt` | 未进行 Base64 编码的节点链接 |
+| 原始节点 | `https://735754647.github.io/Free-Nodes/v2ray-raw.txt` | 与 V2Ray/Xray 子集一致的未编码节点链接 |
 | 测速报告 | `https://735754647.github.io/Free-Nodes/report.json` | 节点来源、延迟、速度和错误信息 |
 | 状态页面 | `https://735754647.github.io/Free-Nodes/` | 最近一次生成结果和节点列表 |
 
@@ -50,7 +50,7 @@ Clash/Mihomo 客户端导入：
 https://735754647.github.io/Free-Nodes/clash.yaml
 ```
 
-不同客户端对协议和传输方式的支持程度不同。如果某个节点在报告中可用，但客户端无法连接，请检查客户端内核版本以及对应协议支持情况。
+`v2ray.txt` 和 `v2ray-raw.txt` 只发布 VLESS、VMess、Trojan、Shadowsocks，并排除关闭 TLS 证书校验的节点以及缺少必要路径的 XHTTP 节点。Hysteria2、TUIC 和其他仅适用于 Clash/Mihomo 或 sing-box 的节点只保留在 `clash.yaml` 和报告中。测速通过不代表所有客户端都支持该协议；如果节点仍无法连接，请检查 v2rayN 使用的 Xray 核心版本、传输参数和本地网络。
 
 ### 添加节点来源
 
@@ -158,9 +158,9 @@ Free Nodes is a GitHub Actions project that collects public proxy links, parses 
 
 | Format | URL | Description |
 | --- | --- | --- |
-| V2Ray | `https://735754647.github.io/Free-Nodes/v2ray.txt` | Base64 subscription for clients such as v2rayN and v2rayNG |
+| V2Ray / Xray | `https://735754647.github.io/Free-Nodes/v2ray.txt` | Base64 subscription containing the Xray/v2rayN-compatible subset |
 | Clash / Mihomo | `https://735754647.github.io/Free-Nodes/clash.yaml` | Complete configuration with an automatic latency group |
-| Raw links | `https://735754647.github.io/Free-Nodes/v2ray-raw.txt` | Extracted node links without Base64 encoding |
+| Raw links | `https://735754647.github.io/Free-Nodes/v2ray-raw.txt` | Unencoded links matching the V2Ray/Xray subset |
 | Benchmark report | `https://735754647.github.io/Free-Nodes/report.json` | Source, latency, speed, and error details |
 | Status page | `https://735754647.github.io/Free-Nodes/` | Latest generated results and node table |
 
@@ -189,7 +189,7 @@ V2Ray: https://735754647.github.io/Free-Nodes/v2ray.txt
 Clash: https://735754647.github.io/Free-Nodes/clash.yaml
 ```
 
-Protocol and transport support varies between clients. A node that passes the CI benchmark can still fail on an older or incompatible client core.
+`v2ray.txt` and `v2ray-raw.txt` contain only VLESS, VMess, Trojan, and Shadowsocks nodes. Nodes with disabled TLS certificate verification and XHTTP nodes without a path are excluded from those files. Hysteria2 and TUIC remain available in `clash.yaml` and the report for Clash/Mihomo or sing-box clients. A successful CI benchmark still does not guarantee support in an older or incompatible client core.
 
 ### Adding Sources
 

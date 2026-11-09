@@ -12,6 +12,29 @@ import yaml
 from .models import Node
 
 
+V2RAY_SCHEMES = frozenset({"vless", "vmess", "trojan", "ss"})
+
+
+def v2ray_compatibility_reason(node: Node) -> str | None:
+    """Return why a node must be omitted from the Xray/v2rayN subscription."""
+    scheme = node.scheme.lower()
+    if scheme not in V2RAY_SCHEMES:
+        return f"{scheme.upper()} is published only in Clash/Mihomo output"
+    if not node.uri:
+        return "node has no URI"
+
+    proxy = node.clash or {}
+    if proxy.get("skip-cert-verify"):
+        return "TLS certificate verification is disabled"
+
+    if scheme == "vless" and str(proxy.get("network", "tcp")).lower() == "xhttp":
+        options = proxy.get("xhttp-opts")
+        if not isinstance(options, dict) or not str(options.get("path", "")).strip():
+            return "XHTTP node has no path"
+
+    return None
+
+
 def _safe_name(name: str, index: int, used: set[str]) -> str:
     clean = " ".join(name.split()).strip() or f"node-{index:03d}"
     candidate = clean[:80]
@@ -50,7 +73,17 @@ def write_outputs(output_dir: Path, nodes: list[Node], source_errors: list[dict[
     output_dir.mkdir(parents=True, exist_ok=True)
     prepare_names(nodes)
 
-    uris = [_rename_uri(node.uri, node.scheme, node.name) for node in nodes if node.uri]
+    v2ray_nodes = [node for node in nodes if v2ray_compatibility_reason(node) is None]
+    v2ray_excluded = [
+        {
+            "name": node.name,
+            "type": node.scheme,
+            "reason": v2ray_compatibility_reason(node),
+        }
+        for node in nodes
+        if v2ray_compatibility_reason(node) is not None
+    ]
+    uris = [_rename_uri(node.uri, node.scheme, node.name) for node in v2ray_nodes]
     raw = "\n".join(uris) + ("\n" if uris else "")
     encoded = base64.b64encode(raw.encode("utf-8")).decode("ascii")
     (output_dir / "v2ray.txt").write_text(encoded + "\n", encoding="ascii")
@@ -90,6 +123,9 @@ def write_outputs(output_dir: Path, nodes: list[Node], source_errors: list[dict[
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "node_count": len(nodes),
+        "v2ray_node_count": len(v2ray_nodes),
+        "v2ray_excluded_count": len(v2ray_excluded),
+        "v2ray_excluded": v2ray_excluded,
         "source_errors": source_errors,
         "nodes": [node.report_dict() for node in nodes],
     }
@@ -107,7 +143,7 @@ def write_outputs(output_dir: Path, nodes: list[Node], source_errors: list[dict[
 <title>Node subscriptions</title>
 <style>body{{font:16px system-ui,sans-serif;max-width:1000px;margin:40px auto;padding:0 20px}}table{{border-collapse:collapse;width:100%}}td,th{{border-bottom:1px solid #ddd;padding:8px;text-align:left}}code{{background:#f3f3f3;padding:2px 4px}}</style>
 <h1>Node subscriptions</h1>
-<p>Generated {report['generated_at']} with {len(nodes)} usable nodes.</p>
+<p>Generated {report['generated_at']} with {len(nodes)} usable nodes; {len(v2ray_nodes)} are compatible with Xray/v2rayN.</p>
 <ul><li><a href="v2ray.txt">V2Ray Base64 subscription</a></li><li><a href="clash.yaml">Clash/Mihomo config</a></li><li><a href="v2ray-raw.txt">Raw links</a></li><li><a href="report.json">JSON report</a></li></ul>
 <table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Latency</th><th>Speed</th></tr></thead><tbody>{rows}</tbody></table>
 """
