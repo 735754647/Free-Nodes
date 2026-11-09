@@ -33,7 +33,7 @@
 - 自动过滤不可用节点，并按速度和延迟排序
 - 通过代理出口 IP 识别国家，并将节点重命名为 `🇺🇸 美国 | VLESS | 001` 格式
 - 每天北京时间 08:30 和 17:00 自动更新，也支持在 Actions 页面手动运行
-- Windows x64 随项目提供便携 Python 3.12、Python 依赖和 Mihomo，首次运行无需另外下载运行环境
+- Windows x64 随项目提供便携 Python 3.12、Python 依赖和 Mihomo v1.19.33，首次运行无需另外下载运行环境
 - 生成 V2Ray、Clash/Mihomo、原始链接和 JSON 报告
 
 ### 客户端使用
@@ -177,7 +177,7 @@ Before the first deployment, open `Settings → Pages` and select **GitHub Actio
 - Filters failed nodes and sorts successful results by speed and latency
 - Detects the proxy exit country and renames nodes like `🇺🇸 美国 | VLESS | 001`
 - Runs daily at 08:30 and 17:00 Asia/Shanghai and supports manual workflow dispatch
-- Bundles portable Python 3.12, Python dependencies, and Mihomo for Windows x64 startup without initial runtime downloads
+- Bundles portable Python 3.12, Python dependencies, and Mihomo v1.19.33 for Windows x64 startup without initial runtime downloads
 - Publishes V2Ray, Clash/Mihomo, raw-link, and JSON report outputs
 
 ### Usage
