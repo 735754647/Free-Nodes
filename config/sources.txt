@@ -24,6 +24,9 @@ https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/main/BLACK_VLES
 # automatically on every build, so no key needs to be stored here.
 V2Nodes (automatic key) | https://www.v2nodes.com/
 
+# Resolve the newest dated article and its subscription URL on every build.
+Yudou (latest article) | https://www.yudou789.top/
+
 # URLs containing private subscription keys belong in the GitHub Actions
 # SOURCE_URLS secret instead of this public file:
 # https://freesocks.org/api/v1/sub/<your-subscription-token>

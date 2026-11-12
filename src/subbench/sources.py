@@ -6,10 +6,14 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from datetime import date
+from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import requests
+
+from .parsers import parse_document
 
 
 _V2NODES_SUBSCRIPTION_RE = re.compile(
@@ -43,6 +47,85 @@ def _extract_v2nodes_subscription_url(document: str) -> str:
     if not match:
         raise ValueError("V2Nodes landing page did not contain a subscription link")
     return match.group(0)
+
+
+def _is_yudou_landing_page(url: str) -> bool:
+    parsed = urlsplit(url)
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname in {"yudou789.top", "www.yudou789.top"}
+        and parsed.path.rstrip("/") == ""
+        and not parsed.query
+    )
+
+
+class _ArticleLinksParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[tuple[str, str]] = []
+        self.href: str | None = None
+        self.label: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "a":
+            attributes = dict(attrs)
+            self.href = attributes.get("href")
+            self.label = [attributes.get("title") or ""]
+
+    def handle_data(self, data: str) -> None:
+        if self.href is not None:
+            self.label.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a" and self.href is not None:
+            self.links.append((self.href, "".join(self.label)))
+            self.href = None
+
+
+def _extract_yudou_article_url(document: str, homepage: str) -> str:
+    parser = _ArticleLinksParser()
+    parser.feed(document)
+    articles: list[tuple[date, str]] = []
+    for href, title in parser.links:
+        if "\u8282\u70b9" not in title:
+            continue
+        match = re.search(r"(\d{4})\u5e74(\d{1,2})\u6708(\d{1,2})\u65e5", title)
+        url = urljoin(homepage, href)
+        parsed = urlsplit(url)
+        if (
+            not match
+            or parsed.scheme != "https"
+            or parsed.hostname not in {"yudou789.top", "www.yudou789.top"}
+            or not re.fullmatch(r"/\d+\.html", parsed.path)
+        ):
+            continue
+        try:
+            article_date = date(*(int(value) for value in match.groups()))
+        except ValueError:
+            continue
+        articles.append((article_date, url))
+    if not articles:
+        raise ValueError("Yudou landing page did not contain a dated node article")
+    return max(articles)[1]
+
+
+def _extract_yudou_subscription_urls(document: str) -> list[str]:
+    urls: list[str] = []
+    # The article includes plain-text URLs inside its hidden content as well as links.
+    for url in re.findall(r"https://[^\s<>\"']+", html.unescape(document)):
+        parsed = urlsplit(url)
+        if (
+            re.fullmatch(r"(?:[a-z0-9-]+\.)*yudou\d+\.top", parsed.hostname or "")
+            and Path(parsed.path).suffix.lower() in {".yaml", ".yml", ".txt"}
+            and url not in urls
+        ):
+            urls.append(url)
+    if not urls:
+        raise ValueError(
+            "Yudou article did not expose a subscription URL; "
+            "the page may require authenticated access or its layout may have changed"
+        )
+    return sorted(urls, key=lambda url: Path(urlsplit(url).path).suffix.lower() == ".txt")
 
 
 def load_sources(path: Path) -> list[SourceSpec]:
@@ -127,6 +210,30 @@ def fetch_sources(
     def fetch(spec: SourceSpec) -> SourceResult:
         try:
             url = spec.url
+            if _is_yudou_landing_page(url):
+                article_url = _extract_yudou_article_url(download(url), url)
+                subscriptions = _extract_yudou_subscription_urls(download(article_url))
+                print(f"Resolved the latest Yudou node article: {article_url}", flush=True)
+                failures: list[str] = []
+                for subscription_url in subscriptions:
+                    try:
+                        text = download(subscription_url)
+                        parsed_nodes = parse_document(text, spec.name)
+                        if not parsed_nodes:
+                            raise ValueError("subscription did not contain supported nodes")
+                        print(
+                            f"Fetched {len(parsed_nodes)} supported nodes for {spec.name}.",
+                            flush=True,
+                        )
+                        return SourceResult(source=spec, text=text)
+                    except (requests.RequestException, ValueError) as exc:
+                        failures.append(str(exc))
+                        print(
+                            f"Yudou subscription attempt failed with {type(exc).__name__}; "
+                            "trying any remaining article links.",
+                            flush=True,
+                        )
+                raise ValueError("All Yudou subscription links failed: " + "; ".join(failures))
             if _is_v2nodes_landing_page(url):
                 url = _extract_v2nodes_subscription_url(download(url))
                 print(f"Resolved the current V2Nodes subscription for {spec.name}.", flush=True)

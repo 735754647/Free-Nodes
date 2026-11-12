@@ -73,6 +73,8 @@ Value: 每行一个订阅地址
 
 V2Nodes 使用公开主页作为来源。程序每次运行都会从 `https://www.v2nodes.com/` 自动提取当前官方订阅地址，因此网站轮换公开 Key 后不需要手动修改仓库配置。
 
+玉豆分享（Yudou）也使用主页 `https://www.yudou789.top/` 作为来源。程序按文章标题日期选择最新节点文章，再提取文章中的订阅地址，优先下载 Clash YAML；下载失败或未解析到支持的节点时，尝试同一文章中的其他订阅链接。当前页面的密码框只控制内容显示，公开返回的 HTML 已包含订阅地址，下载无需密码，因此不需要配置密码 Secret，也不需要每天改地址。若以后网站要求登录后才返回链接，程序会将该来源记为失败，不会把旧文章当作最新结果。抓取到的节点仍参与现有去重和测速流程，不代表全部可用。
+
 ### 测速设置
 
 可在 [`.github/workflows/build.yml`](.github/workflows/build.yml) 中调整：
@@ -203,6 +205,8 @@ https://example.org/nodes.txt
 Store tokenized or private source URLs in the `SOURCE_URLS` GitHub Actions secret as newline-separated values. Do not commit subscription tokens to a public repository. Remember that the generated GitHub Pages subscriptions remain public even when the input URL is stored as a secret.
 
 V2Nodes is configured using its public landing page. The builder reads that page on every run and follows the current official subscription URL automatically, so its rotating public key does not need to be copied into the repository.
+
+Yudou uses `https://www.yudou789.top/` as its source. Each build selects the newest dated node article and extracts its subscription URLs, preferring Clash YAML. If a download fails or contains no supported nodes, it tries the other subscription links in that same article. The current password prompt controls page visibility: the public HTML already contains the links, and their downloads require no password. No password secret or daily URL edit is needed. If the site later requires authentication before returning links, the source reports an error instead of silently selecting an older article. Downloaded nodes still go through the existing deduplication and benchmark checks.
 
 ### Benchmark Configuration
 
