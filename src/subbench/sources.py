@@ -128,6 +128,70 @@ def _extract_yudou_subscription_urls(document: str) -> list[str]:
     return sorted(urls, key=lambda url: Path(urlsplit(url).path).suffix.lower() == ".txt")
 
 
+def _is_cfmem_landing_page(url: str) -> bool:
+    parsed = urlsplit(url)
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname in {"cfmem.com", "www.cfmem.com"}
+        and parsed.path.rstrip("/") == ""
+        and not parsed.query
+    )
+
+
+def _extract_cfmem_article_url(document: str, homepage: str) -> str:
+    parser = _ArticleLinksParser()
+    parser.feed(document)
+    latest: tuple[date, str] | None = None
+    for href, title in parser.links:
+        if "\u514d\u8d39\u8282\u70b9" not in title:
+            continue
+        match = re.search(r"(\d{4})\u5e74(\d{1,2})\u6708(\d{1,2})\u65e5", title)
+        url = urljoin(homepage, href)
+        parsed = urlsplit(url)
+        if (
+            not match
+            or parsed.scheme != "https"
+            or parsed.hostname not in {"cfmem.com", "www.cfmem.com"}
+            or not re.fullmatch(r"/\d{4}/\d{1,2}/\d{8}-.+\.html", parsed.path)
+        ):
+            continue
+        try:
+            article_date = date(*(int(value) for value in match.groups()))
+        except ValueError:
+            continue
+        if latest is None or article_date > latest[0]:
+            latest = (article_date, url)
+    if latest is None:
+        raise ValueError("CFmem landing page did not contain a dated free-node article")
+    return latest[1]
+
+
+def _extract_cfmem_subscription_urls(document: str, article_url: str) -> list[str]:
+    parser = _ArticleLinksParser()
+    parser.feed(document)
+    urls: list[tuple[int, str]] = []
+    format_priority = {"mihomo": 0, "v2ray": 1}
+    for href, _ in parser.links:
+        url = urljoin(article_url, html.unescape(href))
+        parsed = urlsplit(url)
+        match = re.fullmatch(
+            r"/node-sub/[A-Za-z0-9_-]{16,128}/(mihomo|v2ray)",
+            parsed.path.rstrip("/"),
+            re.IGNORECASE,
+        )
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "nodebuf.com"
+            or not match
+        ):
+            continue
+        if all(existing != url for _, existing in urls):
+            urls.append((format_priority[match.group(1).lower()], url))
+    if not urls:
+        raise ValueError("CFmem article did not expose a supported nodebuf subscription URL")
+    return [url for _, url in sorted(urls)]
+
+
 def load_sources(path: Path) -> list[SourceSpec]:
     lines: list[str] = []
     if path.exists():
@@ -210,6 +274,30 @@ def fetch_sources(
     def fetch(spec: SourceSpec) -> SourceResult:
         try:
             url = spec.url
+            if _is_cfmem_landing_page(url):
+                article_url = _extract_cfmem_article_url(download(url), url)
+                subscriptions = _extract_cfmem_subscription_urls(download(article_url), article_url)
+                print(f"Resolved the latest CFmem node article: {article_url}", flush=True)
+                failures: list[str] = []
+                for subscription_url in subscriptions:
+                    try:
+                        text = download(subscription_url)
+                        parsed_nodes = parse_document(text, spec.name)
+                        if not parsed_nodes:
+                            raise ValueError("subscription did not contain supported nodes")
+                        print(
+                            f"Fetched {len(parsed_nodes)} supported nodes for {spec.name}.",
+                            flush=True,
+                        )
+                        return SourceResult(source=spec, text=text)
+                    except (requests.RequestException, ValueError) as exc:
+                        failures.append(str(exc))
+                        print(
+                            f"CFmem subscription attempt failed with {type(exc).__name__}; "
+                            "trying any remaining article links.",
+                            flush=True,
+                        )
+                raise ValueError("All CFmem subscription links failed: " + "; ".join(failures))
             if _is_yudou_landing_page(url):
                 article_url = _extract_yudou_article_url(download(url), url)
                 subscriptions = _extract_yudou_subscription_urls(download(article_url))

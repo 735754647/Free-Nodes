@@ -431,7 +431,7 @@ def _parse_tuic(uri: str, source: str) -> Node:
 def parse_clash_proxy(proxy: dict[str, Any], source: str) -> Node:
     clash = dict(proxy)
     scheme = str(clash.get("type", "")).lower()
-    if scheme not in {"vless", "vmess", "trojan", "ss", "hysteria2", "tuic"}:
+    if scheme not in {"vless", "vmess", "trojan", "ss", "hysteria", "hysteria2", "tuic", "anytls"}:
         raise ValueError("unsupported Clash proxy")
     if not clash.get("server") or not clash.get("port"):
         raise ValueError("missing Clash endpoint")
@@ -446,7 +446,7 @@ def parse_clash_proxy(proxy: dict[str, Any], source: str) -> Node:
         clash["skip-cert-verify"] = True
     if scheme == "ss" and clash.get("cipher"):
         clash["cipher"] = _normalize_ss_cipher(str(clash["cipher"]))
-    uri = clash_to_uri(clash)
+    uri = "" if scheme in {"hysteria", "anytls"} else clash_to_uri(clash)
     return Node(uri=uri, scheme=scheme, name=name, clash=clash, source=source)
 
 

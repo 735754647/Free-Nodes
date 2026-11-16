@@ -27,6 +27,9 @@ V2Nodes (automatic key) | https://www.v2nodes.com/
 # Resolve the newest dated article and its subscription URL on every build.
 Yudou (latest article) | https://www.yudou789.top/
 
+# Find the latest dated node article and its nodebuf subscriptions each build.
+CFmem (latest article) | https://www.cfmem.com/
+
 # URLs containing private subscription keys belong in the GitHub Actions
 # SOURCE_URLS secret instead of this public file:
 # https://freesocks.org/api/v1/sub/<your-subscription-token>
