@@ -2,7 +2,9 @@ import base64
 import json
 import unittest
 
-from subbench.parsers import parse_document, parse_uri
+import yaml
+
+from subbench.parsers import clash_to_uri, parse_document, parse_uri
 
 
 class ParserTests(unittest.TestCase):
@@ -142,6 +144,83 @@ proxies:
         credential = base64.urlsafe_b64encode(b"ss:secret").decode().rstrip("=")
         with self.assertRaisesRegex(ValueError, "unsupported Shadowsocks cipher"):
             parse_uri(f"ss://{credential}@example.com:443#invalid", "test")
+
+
+class VmessCipherTests(unittest.TestCase):
+    def setUp(self):
+        self.payload = {
+            "add": "example.com",
+            "port": "443",
+            "id": "00000000-0000-4000-8000-000000000001",
+            "net": "grpc",
+            "path": "service",
+            "tls": "tls",
+            "sni": "cdn.example.com",
+            "fp": "chrome",
+            "custom": "preserved",
+        }
+        self.proxy = {
+            "name": "demo",
+            "type": "vmess",
+            "server": self.payload["add"],
+            "port": 443,
+            "uuid": self.payload["id"],
+            "alterId": 0,
+        }
+
+    def uri(self, payload):
+        encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+        return f"vmess://{encoded}#fragment"
+
+    def decode(self, uri):
+        encoded = uri.split("://", 1)[1].split("#", 1)[0]
+        return json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+
+    def test_missing_cipher_defaults_to_auto_in_both_formats(self):
+        for document in (self.uri(self.payload), yaml.safe_dump({"proxies": [self.proxy]})):
+            with self.subTest(document_type=document[:8]):
+                node, = parse_document(document, "test")
+                self.assertEqual(node.clash["cipher"], "auto")
+                self.assertEqual(self.decode(node.uri)["scy"], "auto")
+
+    def test_normalized_cipher_is_preserved_in_both_subscription_formats(self):
+        cases = [
+            (None, "auto"), ("", "auto"), ("  ", "auto"), (" AUTO ", "auto"),
+            (" NONE ", "none"), ("None", "none"), ("zero", "zero"), ("aes-128-cfb", "aes-128-cfb"),
+            ("aes-128-gcm", "aes-128-gcm"), ("chacha20-poly1305", "chacha20-poly1305"),
+        ]
+        for cipher, expected in cases:
+            with self.subTest(cipher=cipher):
+                payload = {**self.payload, "scy": cipher}
+                node = parse_uri(self.uri(payload), "test")
+                self.assertEqual(node.clash["cipher"], expected)
+                self.assertEqual(self.decode(node.uri), {**payload, "scy": expected})
+                self.assertTrue(node.uri.endswith("#fragment"))
+                document = yaml.safe_dump({"proxies": [{**self.proxy, "cipher": cipher}]})
+                clash_node, = parse_document(document, "test")
+                self.assertEqual(clash_node.clash["cipher"], expected)
+                self.assertEqual(self.decode(clash_node.uri)["scy"], expected)
+
+    def test_invalid_cipher_is_reported_without_discarding_valid_nodes(self):
+        for cipher in ("null", "unknown", "aes-256-gcm", False, 0, [], {}):
+            documents = [
+                self.uri({**self.payload, "scy": cipher}) + "\n" + self.uri(self.payload),
+                yaml.safe_dump({"proxies": [{**self.proxy, "cipher": cipher}, self.proxy]}),
+            ]
+            for document in documents:
+                with self.subTest(cipher=cipher, document_type=document[:8]):
+                    skipped = []
+                    nodes = parse_document(document, "test-source", skipped)
+                    self.assertEqual(len(nodes), 1)
+                    self.assertEqual(nodes[0].clash["cipher"], "auto")
+                    self.assertEqual(len(skipped), 1)
+                    self.assertIn("test-source: unsupported VMess cipher", skipped[0])
+
+    def test_direct_clash_export_does_not_stringify_null_cipher(self):
+        uri = clash_to_uri({**self.proxy, "cipher": None})
+        self.assertEqual(self.decode(uri)["scy"], "auto")
+        with self.assertRaisesRegex(ValueError, "unsupported VMess cipher"):
+            clash_to_uri({**self.proxy, "cipher": "null"})
 
 
 if __name__ == "__main__":

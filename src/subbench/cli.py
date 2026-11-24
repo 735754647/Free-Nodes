@@ -102,7 +102,7 @@ def run(args: argparse.Namespace) -> int:
     print(f"Fetched {len(source_results)} sources and parsed {len(nodes)} candidate nodes.")
     if skipped_nodes:
         print(
-            f"Skipped {len(skipped_nodes)} VLESS nodes with unsupported Mihomo encryption parameters.",
+            f"Skipped {len(skipped_nodes)} nodes with unsupported Mihomo encryption parameters.",
             flush=True,
         )
 

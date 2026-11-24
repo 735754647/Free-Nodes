@@ -85,30 +85,33 @@ class MihomoBenchmark:
         )
         log_path = self.workdir / "mihomo.log"
         self.log_handle = log_path.open("w", encoding="utf-8")
-        self.process = subprocess.Popen(
-            [str(self.binary), "-d", str(self.workdir), "-f", str(config_path)],
-            stdout=self.log_handle,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        deadline = time.monotonic() + 60
-        while time.monotonic() < deadline:
-            try:
-                response = requests.get(f"{self.controller}/version", timeout=1)
-                if response.ok:
-                    return self
-            except requests.RequestException:
+        failure_reason = "Mihomo did not start within 60 seconds."
+        try:
+            self.process = subprocess.Popen(
+                [str(self.binary), "-d", str(self.workdir), "-f", str(config_path)],
+                stdout=self.log_handle,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
+                returncode = self.process.poll()
+                if returncode is not None:
+                    failure_reason = f"Mihomo exited during startup with exit code {returncode}."
+                    break
+                try:
+                    response = requests.get(f"{self.controller}/version", timeout=1)
+                    if response.ok and self.process.poll() is None:
+                        return self
+                except requests.RequestException:
+                    pass
                 time.sleep(0.25)
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+        self.__exit__(None, None, None)
         log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-4000:]
-        if self.process and self.process.poll() is None:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-        if self.log_handle:
-            self.log_handle.close()
-        raise RuntimeError(f"Mihomo did not start within 60 seconds. Log tail:\n{log_tail}")
+        raise RuntimeError(f"{failure_reason} Log tail:\n{log_tail}")
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         if self.process and self.process.poll() is None:
@@ -117,6 +120,7 @@ class MihomoBenchmark:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+                self.process.wait(timeout=5)
         if self.log_handle:
             self.log_handle.close()
 

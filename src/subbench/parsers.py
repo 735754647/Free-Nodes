@@ -47,6 +47,19 @@ def _validate_vless_encryption(value: str) -> None:
         )
 
 
+def _normalize_vmess_cipher(value: Any) -> str:
+    if value is None:
+        return "auto"
+    if not isinstance(value, str):
+        raise ValueError("unsupported VMess cipher: expected a string")
+    normalized = value.strip().lower() or "auto"
+    if normalized not in {
+        "auto", "none", "zero", "aes-128-cfb", "aes-128-gcm", "chacha20-poly1305"
+    }:
+        raise ValueError(f"unsupported VMess cipher: {normalized[:120]}")
+    return normalized
+
+
 def _normalize_ss_cipher(value: str) -> str:
     aliases = {
         "chacha20-poly1305": "chacha20-ietf-poly1305",
@@ -128,7 +141,9 @@ def parse_document(
         try:
             nodes.append(parse_uri(uri, source))
         except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
-            if skipped_nodes is not None and str(exc).startswith("unsupported VLESS encryption"):
+            if skipped_nodes is not None and str(exc).startswith(
+                ("unsupported VLESS encryption", "unsupported VMess cipher")
+            ):
                 skipped_nodes.append(f"{source}: {exc}")
             continue
 
@@ -143,7 +158,9 @@ def parse_document(
             try:
                 nodes.append(parse_clash_proxy(proxy, source))
             except (ValueError, KeyError, TypeError) as exc:
-                if skipped_nodes is not None and str(exc).startswith("unsupported VLESS encryption"):
+                if skipped_nodes is not None and str(exc).startswith(
+                    ("unsupported VLESS encryption", "unsupported VMess cipher")
+                ):
                     skipped_nodes.append(f"{source}: {exc}")
                 continue
     return nodes
@@ -262,6 +279,7 @@ def _parse_vmess(uri: str, source: str) -> Node:
     server = str(data["add"])
     port = int(data["port"])
     name = _node_name(str(data.get("ps", "")), "vmess", server, port)
+    cipher = _normalize_vmess_cipher(data.get("scy"))
     proxy: dict[str, Any] = {
         "name": name,
         "type": "vmess",
@@ -269,7 +287,7 @@ def _parse_vmess(uri: str, source: str) -> Node:
         "port": port,
         "uuid": str(data["id"]),
         "alterId": int(data.get("aid", 0) or 0),
-        "cipher": str(data.get("scy", "auto") or "auto"),
+        "cipher": cipher,
         "udp": True,
     }
     network = str(data.get("net", "tcp") or "tcp")
@@ -290,6 +308,11 @@ def _parse_vmess(uri: str, source: str) -> Node:
             proxy["client-fingerprint"] = str(data["fp"])
         if _truthy(str(data.get("allowInsecure", ""))) or _truthy(str(data.get("insecure", ""))):
             proxy["skip-cert-verify"] = True
+    if data.get("scy") != cipher:
+        data["scy"] = cipher
+        normalized_payload = _b64encode(json.dumps(data, separators=(",", ":")).encode("utf-8"))
+        _, separator, fragment = uri.partition("#")
+        uri = f"vmess://{normalized_payload}{separator}{fragment}"
     return Node(uri=uri, scheme="vmess", name=name, clash=proxy, source=source)
 
 
@@ -439,6 +462,8 @@ def parse_clash_proxy(proxy: dict[str, Any], source: str) -> Node:
     clash["name"] = name
     if scheme == "vless":
         _validate_vless_encryption(str(clash.get("encryption", "none")))
+    if scheme == "vmess":
+        clash["cipher"] = _normalize_vmess_cipher(clash.get("cipher"))
     if scheme in {"vless", "vmess", "trojan"} and (
         _truthy(str(clash.get("allowInsecure", "")))
         or _truthy(str(clash.get("insecure", "")))
@@ -465,7 +490,7 @@ def clash_to_uri(proxy: dict[str, Any]) -> str:
             "port": str(port),
             "id": str(proxy["uuid"]),
             "aid": str(proxy.get("alterId", 0)),
-            "scy": str(proxy.get("cipher", "auto")),
+            "scy": _normalize_vmess_cipher(proxy.get("cipher")),
             "net": str(proxy.get("network", "tcp")),
             "type": "none",
             "host": "",

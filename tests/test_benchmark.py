@@ -198,5 +198,79 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(document["proxies"][0]["reality-opts"]["short-id"], "09")
 
 
+class BenchmarkStartupTests(unittest.TestCase):
+    def setUp(self):
+        directory = self.enterContext(TemporaryDirectory())
+        self.benchmark = MihomoBenchmark(
+            binary=Path("mihomo"),
+            workdir=Path(directory),
+            nodes=[make_node("one")],
+            latency_url="https://example.com/generate_204",
+            speed_url="https://example.com/test.bin",
+            geo_url="https://example.com/geo",
+            timeout_ms=8000,
+            speed_bytes=1000,
+            speed_limit=0,
+            speed_timeout_seconds=8,
+            workers=1,
+        )
+
+    def test_exited_process_reports_log_immediately_and_closes_it(self):
+        with (
+            patch("subbench.benchmark.subprocess.Popen") as popen,
+            patch("subbench.benchmark.requests.get") as request,
+            patch("subbench.benchmark.time.sleep") as sleep,
+        ):
+            def launch(*args, **kwargs):
+                kwargs["stdout"].write("Parse config error: unsupported security type: null\n")
+                return popen.return_value
+
+            popen.side_effect = launch
+            popen.return_value.poll.return_value = 1
+            with self.assertRaisesRegex(RuntimeError, "exited during startup with exit code 1") as error:
+                self.benchmark.__enter__()
+            self.assertIn("unsupported security type: null", str(error.exception))
+            request.assert_not_called()
+            sleep.assert_not_called()
+            popen.return_value.terminate.assert_not_called()
+        self.assertTrue(self.benchmark.log_handle.closed)
+
+    def test_launch_failure_closes_log(self):
+        with patch("subbench.benchmark.subprocess.Popen", side_effect=FileNotFoundError("missing")):
+            with self.assertRaises(FileNotFoundError):
+                self.benchmark.__enter__()
+        self.assertTrue(self.benchmark.log_handle.closed)
+
+    def test_startup_timeout_still_stops_process(self):
+        with (
+            patch("subbench.benchmark.subprocess.Popen") as popen,
+            patch("subbench.benchmark.requests.get") as request,
+            patch("subbench.benchmark.time.monotonic", side_effect=[0, 0, 61]),
+            patch("subbench.benchmark.time.sleep") as sleep,
+        ):
+            popen.return_value.poll.return_value = None
+            request.return_value.ok = False
+            with self.assertRaisesRegex(RuntimeError, "did not start within 60 seconds"):
+                self.benchmark.__enter__()
+            popen.return_value.terminate.assert_called_once()
+            popen.return_value.wait.assert_called_once_with(timeout=5)
+            sleep.assert_called_once_with(0.25)
+        self.assertTrue(self.benchmark.log_handle.closed)
+
+    def test_successful_startup_keeps_process_until_context_exits(self):
+        with (
+            patch("subbench.benchmark.subprocess.Popen") as popen,
+            patch("subbench.benchmark.requests.get") as request,
+        ):
+            popen.return_value.poll.return_value = None
+            request.return_value.ok = True
+            with self.benchmark as benchmark:
+                self.assertIs(benchmark, self.benchmark)
+                self.assertFalse(benchmark.log_handle.closed)
+                popen.return_value.terminate.assert_not_called()
+            popen.return_value.terminate.assert_called_once()
+        self.assertTrue(self.benchmark.log_handle.closed)
+
+
 if __name__ == "__main__":
     unittest.main()
