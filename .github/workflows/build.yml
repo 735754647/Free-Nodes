@@ -57,12 +57,14 @@ jobs:
             $_.type -eq 'blob' -and (
               $_.path -eq 'pyproject.toml' -or
               $_.path -eq 'scripts/install_mihomo.py' -or
+              $_.path -eq 'scripts/select_artifact_proxy.py' -or
               $_.path -like 'config/*' -or
               $_.path -like 'src/*'
             )
           })
           if (-not ($files | Where-Object { $_.path -eq 'pyproject.toml' }) -or
               -not ($files | Where-Object { $_.path -eq 'scripts/install_mihomo.py' }) -or
+              -not ($files | Where-Object { $_.path -eq 'scripts/select_artifact_proxy.py' }) -or
               -not ($files | Where-Object { $_.path -like 'src/*' })) {
             throw 'GitHub tree did not contain the required build files.'
           }
@@ -278,6 +280,11 @@ jobs:
       - name: Upload subscription output (attempt 1)
         id: upload_subscription_1
         continue-on-error: true
+        env:
+          HTTP_PROXY: ""
+          HTTPS_PROXY: ""
+          ALL_PROXY: ""
+          NO_PROXY: "*"
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
@@ -286,20 +293,26 @@ jobs:
           overwrite: true
           compression-level: 1
 
-      - name: Wait before subscription output upload retry 2
+      - name: Wait and select network for subscription upload retry 2
         id: upload_subscription_2
         if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' }}
+        continue-on-error: true
+        timeout-minutes: 2
         shell: powershell -ExecutionPolicy Bypass -File {0}
-        run: Start-Sleep -Seconds 15
+        run: |
+          Start-Sleep -Seconds 15
+          & $env:PYTHON_EXE scripts/select_artifact_proxy.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Retry subscription output upload (attempt 2)
         id: upload_subscription_2_action
         if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' }}
         continue-on-error: true
         env:
-          HTTP_PROXY: http://127.0.0.1:10808
-          HTTPS_PROXY: http://127.0.0.1:10808
-          NO_PROXY: 127.0.0.1,localhost
+          HTTP_PROXY: ${{ steps.upload_subscription_2.outputs.proxy }}
+          HTTPS_PROXY: ${{ steps.upload_subscription_2.outputs.proxy }}
+          ALL_PROXY: ""
+          NO_PROXY: ${{ steps.upload_subscription_2.outputs.no_proxy || '*' }}
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
@@ -308,20 +321,26 @@ jobs:
           overwrite: true
           compression-level: 1
 
-      - name: Wait before subscription output upload retry 3
+      - name: Wait and select network for subscription upload retry 3
         id: upload_subscription_3_wait
         if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2_action.outcome != 'success' }}
+        continue-on-error: true
+        timeout-minutes: 2
         shell: powershell -ExecutionPolicy Bypass -File {0}
-        run: Start-Sleep -Seconds 30
+        run: |
+          Start-Sleep -Seconds 30
+          & $env:PYTHON_EXE scripts/select_artifact_proxy.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Retry subscription output upload (attempt 3)
         id: upload_subscription_3
         if: ${{ always() && steps.build_subscriptions.outcome == 'success' && steps.upload_subscription_1.outcome != 'success' && steps.upload_subscription_2_action.outcome != 'success' }}
         continue-on-error: true
         env:
-          HTTP_PROXY: http://127.0.0.1:10808
-          HTTPS_PROXY: http://127.0.0.1:10808
-          NO_PROXY: 127.0.0.1,localhost
+          HTTP_PROXY: ${{ steps.upload_subscription_3_wait.outputs.proxy }}
+          HTTPS_PROXY: ${{ steps.upload_subscription_3_wait.outputs.proxy }}
+          ALL_PROXY: ""
+          NO_PROXY: ${{ steps.upload_subscription_3_wait.outputs.no_proxy || '*' }}
         uses: actions/upload-artifact@v7
         with:
           name: subscription-output
@@ -338,14 +357,17 @@ jobs:
           UPLOAD_1: ${{ steps.upload_subscription_1.outcome }}
           UPLOAD_2: ${{ steps.upload_subscription_2_action.outcome }}
           UPLOAD_3: ${{ steps.upload_subscription_3.outcome }}
+          UPLOAD_ROUTE_2: ${{ steps.upload_subscription_2.outputs.route || 'direct' }}
+          UPLOAD_ROUTE_3: ${{ steps.upload_subscription_3_wait.outputs.route || 'direct' }}
         run: |
           if ($env:BUILD_OUTCOME -ne "success") {
             Write-Host "Build subscriptions did not complete successfully ($env:BUILD_OUTCOME); skipping artifact verification."
             exit 0
           }
           Write-Host "Artifact upload attempts: $env:UPLOAD_1, $env:UPLOAD_2, $env:UPLOAD_3"
+          Write-Host "Artifact upload routes: direct, $env:UPLOAD_ROUTE_2, $env:UPLOAD_ROUTE_3"
           if ($env:UPLOAD_1 -ne "success" -and $env:UPLOAD_2 -ne "success" -and $env:UPLOAD_3 -ne "success") {
-            throw "All subscription artifact upload attempts failed."
+            throw "All subscription artifact upload attempts failed. Check the upload errors and network checks above."
           }
 
   deploy:
